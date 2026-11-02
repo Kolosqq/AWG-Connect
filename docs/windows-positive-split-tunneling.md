@@ -49,6 +49,12 @@ drivers without confirmation.
 
 No positive-mode traffic test has passed yet.
 
+For local regression binaries, set `QT_QPA_PLATFORM=offscreen` and
+`AMNEZIA_TEST_IPC_URL=local:amnezia-isolated-regression-tests` to avoid contacting
+the installed service, including its logging controls. The IPC override is
+compiled only into test binaries. Set `AMNEZIA_TEST_QML_DIR` to the checkout's
+`client/ui/qml` directory when running the portable QML regression test.
+
 ## Candidate implementation
 
 The existing Via VPN selector is enabled on Windows. The mode is carried through
@@ -106,3 +112,10 @@ backup outside Git before switching. Do not upload configurations or test logs.
 
 The probe script never changes VPN connections, routes, services, firewall rules
 or Windows security settings.
+
+The first application requested for a user test is Brave. Select its actual
+`brave.exe` executable, fully exit its existing processes after saving work, and
+restart it after enabling the candidate connection. Compare the browser's IPv4
+exit with the VPN probe, while the unselected probe must retain the direct exit.
+Keep the browser profile unchanged. Existing sockets, child processes and QUIC
+need separate checks beyond the initial IPv4 HTTPS comparison.

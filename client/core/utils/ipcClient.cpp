@@ -5,7 +5,13 @@
 
 IpcClient::IpcClient(QObject *parent) : QObject(parent)
 {
-    m_node.connectToNode(QUrl("local:" + amnezia::getIpcServiceUrl()));
+    QUrl serviceUrl("local:" + amnezia::getIpcServiceUrl());
+#ifdef AMNEZIA_BUILD_TESTS
+    if (qEnvironmentVariableIsSet("AMNEZIA_TEST_IPC_URL")) {
+        serviceUrl = QUrl(qEnvironmentVariable("AMNEZIA_TEST_IPC_URL"));
+    }
+#endif
+    m_node.connectToNode(serviceUrl);
     m_interface.reset(m_node.acquire<IpcInterfaceReplica>());
 }
 

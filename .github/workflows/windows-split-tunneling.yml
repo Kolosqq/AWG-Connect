@@ -22,6 +22,7 @@ jobs:
       AMNEZIA_BUILD_TESTS: ON
       QT_FORCE_STDERR_LOGGING: 1
       QT_QPA_PLATFORM: offscreen
+      AMNEZIA_TEST_IPC_URL: local:amnezia-isolated-regression-tests
     steps:
       - uses: actions/checkout@v4
         with:
