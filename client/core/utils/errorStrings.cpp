@@ -19,6 +19,11 @@ QString errorString(ErrorCode code) {
                 "site split tunneling and Kill Switch turned off. Settings have not been changed.");
         break;
 
+    case ErrorCode::PositiveSplitTunnelServiceError:
+        errorMessage = QObject::tr("The background service does not support Via VPN app mode. Install the matching "
+                                   "client and service from this fork before connecting.");
+        break;
+
     // Server errors
     case(ErrorCode::ServerCheckFailed): errorMessage = QObject::tr("Server check failed"); break;
     case(ErrorCode::ServerPortAlreadyAllocatedError): errorMessage = QObject::tr("Server port already used. Check for another software"); break;

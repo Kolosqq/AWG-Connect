@@ -28,6 +28,10 @@
 - `recipes/win-split-tunnel/conanfile.py`: pinned driver version `1.2.5.0`;
   source tag commit `198ecde6e8cf547a01810b9ae87cefba562f7f99` in
   https://github.com/mullvad/win-split-tunnel.
+- The pinned x64 driver was downloaded as a file only: its SHA-256 matched
+  `4056b22d08115c1a83bc2cafa17de0bb17db3705eac382de77fd7935eeff7edb`, and
+  Windows Authenticode reported `Valid` (Mullvad VPN AB). It was not installed
+  or loaded on the host.
 
 The driver has no positive-mode flag. Its address-based bind/connect redirect
 may be reusable with reversed interface roles, provided routing, firewall, DNS,
@@ -53,6 +57,12 @@ Only default AllowedIPs are accepted, tunnel routes have a high metric, and the
 existing route-capture feature stays off. A lower-priority WFP rule blocks
 unselected traffic on the tunnel adapter. The driver retains its existing
 process and child-process tracking.
+
+Positive-mode reconnects recreate the interface and revalidate the configuration.
+If any selected executable path cannot be converted for the driver, activation
+fails rather than silently using a partial selection.
+The client requires positive-mode support in the service status handshake; an
+older service is rejected before sending an activation request.
 
 An empty positive list keeps all applications direct. The ordinary exclusion
 mode and its saved list remain separate. System DNS is left unchanged, including

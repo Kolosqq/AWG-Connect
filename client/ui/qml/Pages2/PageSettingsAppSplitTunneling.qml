@@ -107,6 +107,7 @@ PageType {
 
             SegmentedControlType {
                 id: modeSelector
+                objectName: "appRouteModeSelector"
 
                 Layout.fillWidth: true
                 Layout.topMargin: 24

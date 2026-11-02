@@ -537,9 +537,9 @@ QString Daemon::logs() {
 void Daemon::cleanLogs() { }
 
 bool Daemon::supportServerSwitching(const InterfaceConfig& config) const {
-  if (!m_connections.contains(config.m_hopType)) {
-    return false;
-  }
+    if (config.m_positiveSplitTunnel || !m_connections.contains(config.m_hopType)) {
+        return false;
+    }
   const InterfaceConfig& current =
       m_connections.value(config.m_hopType).m_config;
 
@@ -600,6 +600,9 @@ bool Daemon::switchServer(const InterfaceConfig& config) {
 QJsonObject Daemon::getStatus() {
   Q_ASSERT(wgutils() != nullptr);
   QJsonObject json;
+#ifdef Q_OS_WIN
+  json.insert("positiveSplitTunnelSupported", true);
+#endif
   logger.debug() << "Status request";
 
   if (!wgutils()->interfaceExists() || m_connections.isEmpty()) {

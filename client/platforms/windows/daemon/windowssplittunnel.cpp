@@ -290,33 +290,32 @@ WindowsSplitTunnel::~WindowsSplitTunnel() {
   uninstallDriver();
 }
 
-bool WindowsSplitTunnel::excludeApps(const QStringList& appPaths) {
-  auto state = getState();
-  if (state != STATE_READY && state != STATE_RUNNING) {
-    logger.warning() << "Driver is not in the right State to set Rules"
-                     << state;
-    return false;
-  }
+bool WindowsSplitTunnel::excludeApps(const QStringList &appPaths, bool requireAll)
+{
+    auto state = getState();
+    if (state != STATE_READY && state != STATE_RUNNING) {
+        logger.warning() << "Driver is not in the right State to set Rules" << state;
+        return false;
+    }
 
-  logger.debug() << "Pushing new Ruleset for Split-Tunnel " << state;
-  auto config = generateAppConfiguration(appPaths);
-  if (config.empty()) {
-    logger.error() << "No valid split-tunnel application rules generated";
-    return false;
-  }
+    logger.debug() << "Pushing new Ruleset for Split-Tunnel " << state;
+    auto config = generateAppConfiguration(appPaths, requireAll);
+    if (config.empty()) {
+        logger.error() << "No valid split-tunnel application rules generated";
+        return false;
+    }
 
-  DWORD bytesReturned;
-  auto ok = DeviceIoControl(m_driver, IOCTL_SET_CONFIGURATION, &config[0],
-                            (DWORD)config.size(), nullptr, 0, &bytesReturned,
-                            nullptr);
-  if (!ok) {
-    auto err = GetLastError();
-    WindowsUtils::windowsLog("Set Config Failed:");
-    logger.error() << "Failed to set Config err code " << err;
-    return false;
-  }
-  logger.debug() << "New Configuration applied: " << stateString();
-  return true;
+    DWORD bytesReturned;
+    auto ok = DeviceIoControl(m_driver, IOCTL_SET_CONFIGURATION, &config[0], (DWORD)config.size(), nullptr, 0,
+                              &bytesReturned, nullptr);
+    if (!ok) {
+        auto err = GetLastError();
+        WindowsUtils::windowsLog("Set Config Failed:");
+        logger.error() << "Failed to set Config err code " << err;
+        return false;
+    }
+    logger.debug() << "New Configuration applied: " << stateString();
+    return true;
 }
 
 bool WindowsSplitTunnel::start(int inetAdapterIndex, int vpnAdapterIndex, bool positive)
@@ -422,58 +421,59 @@ WindowsSplitTunnel::DRIVER_STATE WindowsSplitTunnel::getState() {
   return getState(m_driver);
 }
 
-std::vector<uint8_t> WindowsSplitTunnel::generateAppConfiguration(
-    const QStringList& appPaths) {
-  // Step 1: Calculate how much size the buffer will need
-  size_t cummulated_string_size = 0;
-  QStringList dosPaths;
-  for (auto const& path : appPaths) {
-    const QString normalizedPath = normalizeExecutablePath(path);
-    auto dosPath = convertPath(normalizedPath);
-    if (dosPath.isEmpty()) {
-      logger.error() << "Rejecting split-tunnel app path with empty device "
-                        "conversion:"
-                     << normalizedPath;
-      continue;
+std::vector<uint8_t> WindowsSplitTunnel::generateAppConfiguration(const QStringList &appPaths, bool requireAll)
+{
+    // Step 1: Calculate how much size the buffer will need
+    size_t cummulated_string_size = 0;
+    QStringList dosPaths;
+    for (auto const &path : appPaths) {
+        const QString normalizedPath = normalizeExecutablePath(path);
+        auto dosPath = convertPath(normalizedPath);
+        if (dosPath.isEmpty()) {
+            logger.error() << "Rejecting split-tunnel app path with empty device "
+                              "conversion:"
+                           << normalizedPath;
+            if (requireAll) {
+                return { };
+            }
+            continue;
+        }
+        dosPaths.append(dosPath);
+        cummulated_string_size += dosPath.toStdWString().size() * sizeof(wchar_t);
     }
-    dosPaths.append(dosPath);
-    cummulated_string_size += dosPath.toStdWString().size() * sizeof(wchar_t);
-  }
-  if (dosPaths.isEmpty()) {
-    return {};
-  }
-  size_t bufferSize = sizeof(CONFIGURATION_HEADER) +
-                      (sizeof(CONFIGURATION_ENTRY) * dosPaths.size()) +
-                      cummulated_string_size;
-  std::vector<uint8_t> outBuffer(bufferSize);
+    if (dosPaths.isEmpty()) {
+        return { };
+    }
+    size_t bufferSize =
+            sizeof(CONFIGURATION_HEADER) + (sizeof(CONFIGURATION_ENTRY) * dosPaths.size()) + cummulated_string_size;
+    std::vector<uint8_t> outBuffer(bufferSize);
 
-  auto header = (CONFIGURATION_HEADER*)&outBuffer[0];
-  auto entry = (CONFIGURATION_ENTRY*)(header + 1);
+    auto header = (CONFIGURATION_HEADER *)&outBuffer[0];
+    auto entry = (CONFIGURATION_ENTRY *)(header + 1);
 
-  auto stringDest = &outBuffer[0] + sizeof(CONFIGURATION_HEADER) +
-                    (sizeof(CONFIGURATION_ENTRY) * dosPaths.size());
+    auto stringDest = &outBuffer[0] + sizeof(CONFIGURATION_HEADER) + (sizeof(CONFIGURATION_ENTRY) * dosPaths.size());
 
-  SIZE_T stringOffset = 0;
+    SIZE_T stringOffset = 0;
 
-  for (const QString& path : dosPaths) {
-    auto wstr = path.toStdWString();
-    auto cstr = wstr.c_str();
-    auto stringLength = wstr.size() * sizeof(wchar_t);
+    for (const QString &path : dosPaths) {
+        auto wstr = path.toStdWString();
+        auto cstr = wstr.c_str();
+        auto stringLength = wstr.size() * sizeof(wchar_t);
 
-    entry->ImageNameLength = (USHORT)stringLength;
-    entry->ImageNameOffset = stringOffset;
+        entry->ImageNameLength = (USHORT)stringLength;
+        entry->ImageNameOffset = stringOffset;
 
-    memcpy(stringDest, cstr, stringLength);
+        memcpy(stringDest, cstr, stringLength);
 
-    ++entry;
-    stringDest += stringLength;
-    stringOffset += stringLength;
-  }
+        ++entry;
+        stringDest += stringLength;
+        stringOffset += stringLength;
+    }
 
-  header->NumEntries = dosPaths.length();
-  header->TotalLength = bufferSize;
+    header->NumEntries = dosPaths.length();
+    header->TotalLength = bufferSize;
 
-  return outBuffer;
+    return outBuffer;
 }
 
 std::vector<std::byte> WindowsSplitTunnel::generateIPConfiguration(int inetAdapterIndex, int vpnAdapterIndex,

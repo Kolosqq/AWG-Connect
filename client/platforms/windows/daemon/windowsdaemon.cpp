@@ -76,7 +76,7 @@ void WindowsDaemon::activateSplitTunnel(const InterfaceConfig& config, int vpnAd
           emit backendFailure(DaemonError::ERROR_SPLIT_TUNNEL_START_FAILURE);
           return;
       }
-      if (!m_splitTunnelManager->excludeApps(config.m_vpnDisabledApps)) {
+      if (!m_splitTunnelManager->excludeApps(config.m_vpnDisabledApps, config.m_positiveSplitTunnel)) {
           logger.error() << "Failed to apply split tunnel app exclusions";
           emit backendFailure(DaemonError::ERROR_SPLIT_TUNNEL_EXCLUDE_FAILURE);
           return;
@@ -113,11 +113,11 @@ bool WindowsDaemon::run(Op op, const InterfaceConfig& config) {
           emit backendFailure(DaemonError::ERROR_SPLIT_TUNNEL_START_FAILURE);
           return false;
       };
-    if (!m_splitTunnelManager->excludeApps(config.m_vpnDisabledApps)) {
-      logger.error() << "Split tunnel app exclusion failed";
-      emit backendFailure(DaemonError::ERROR_SPLIT_TUNNEL_EXCLUDE_FAILURE);
-      return false;
-    };
+      if (!m_splitTunnelManager->excludeApps(config.m_vpnDisabledApps, config.m_positiveSplitTunnel)) {
+          logger.error() << "Split tunnel app exclusion failed";
+          emit backendFailure(DaemonError::ERROR_SPLIT_TUNNEL_EXCLUDE_FAILURE);
+          return false;
+      };
     // Now the driver should be running (State == 4)
     if (!m_splitTunnelManager->isRunning()) {
       logger.error() << "Split tunnel did not reach running state";

@@ -39,23 +39,30 @@ private slots:
         ContainerProps containerProps;
         qmlRegisterSingletonInstance("ContainerProps", 1, 0, "ContainerProps", &containerProps);
         QQmlApplicationEngine engine;
-        engine.addImportPath(QStringLiteral(AMNEZIA_TEST_QML_DIR "/Modules"));
+        const QString qmlDirectory = qEnvironmentVariable("AMNEZIA_TEST_QML_DIR", QStringLiteral(AMNEZIA_TEST_QML_DIR));
+        engine.addImportPath(qmlDirectory + "/Modules");
         engine.rootContext()->setContextProperty("windowHeight", 680);
         engine.rootContext()->setContextProperty("windowWidth", 380);
         auto vpnConnection = QSharedPointer<VpnConnection>::create(nullptr, nullptr);
         TestCoreController controller(vpnConnection, m_settings, &engine);
-        QQmlComponent component(
-                &engine,
-                QUrl::fromLocalFile(QStringLiteral(AMNEZIA_TEST_QML_DIR "/Pages2/PageSettingsAppSplitTunneling.qml")));
+        QQmlComponent component(&engine, QUrl::fromLocalFile(qmlDirectory + "/Pages2/PageSettingsAppSplitTunneling.qml"));
         QTRY_VERIFY_WITH_TIMEOUT(component.status() != QQmlComponent::Loading, 10000);
         QVERIFY2(component.isReady(), qPrintable(component.errorString()));
         QScopedPointer<QObject> page(component.create());
         QVERIFY2(page, qPrintable(component.errorString()));
         QVERIFY(page->property("pageEnabled").toBool());
-        controller.m_appSplitTunnelingUiController->setRouteMode(AppsRouteMode::VpnOnlyForwardApps);
+        auto selector = page->findChild<QObject *>("appRouteModeSelector");
+        QVERIFY(selector);
+#ifdef Q_OS_WIN
+        QVERIFY(selector->property("enabled").toBool());
+#endif
+        QVERIFY(QMetaObject::invokeMethod(selector, "activated", Q_ARG(int, 0)));
+        QCOMPARE(controller.m_appSplitTunnelingUiController->getRouteMode(), int(AppsRouteMode::VpnOnlyForwardApps));
         QCOMPARE(page->property("routeModeIndex").toInt(), 0);
         controller.m_appSplitTunnelingUiController->setRouteMode(AppsRouteMode::VpnAllExceptApps);
         QCOMPARE(page->property("routeModeIndex").toInt(), 1);
+        page->setProperty("pageEnabled", false);
+        QVERIFY(!selector->property("enabled").toBool());
     }
 
     void testSeparateApplicationLists()

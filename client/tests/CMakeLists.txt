@@ -230,6 +230,7 @@ if(NOT ANDROID)
     target_link_libraries(test_ui_app_st_model_and_controller PRIVATE
         Qt6::Test
         test_common
+          SortFilterProxyModel
     )
 
     add_executable(test_ui_allowed_dns_model_and_controller

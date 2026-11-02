@@ -19,6 +19,7 @@ namespace amnezia
         AmneziaServiceNotRunning = 103,
         NotSupportedOnThisPlatform = 104,
         PositiveSplitTunnelConfigurationError = 105,
+        PositiveSplitTunnelServiceError = 106,
 
         // Server errors
         ServerCheckFailed = 200,

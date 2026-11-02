@@ -71,6 +71,15 @@ jobs:
           AmneziaVPN AmneziaVPN-service test_positive_split_tunnel
           test_settings_signals test_ui_ip_model_and_controller
           test_ui_app_st_model_and_controller test_ui_allowed_dns_model_and_controller
+      - name: Stage portable regression tests
+        id: portable-tests
+        shell: pwsh
+        run: |
+          cmake --install deploy/build --prefix deploy/build/portable-tests --config Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Get-ChildItem deploy/build/client -Filter test_*.exe -Recurse |
+            Copy-Item -Destination deploy/build/portable-tests
+          Copy-Item "$env:QT_ROOT_DIR/bin/Qt6Test.dll" deploy/build/portable-tests
       - name: Run settings and split tunneling regression tests
         shell: cmd
         run: >-
@@ -90,6 +99,13 @@ jobs:
         with:
           name: windows-test-results
           path: deploy/build/client/tests/Testing/Temporary/LastTest.log
+          retention-days: 7
+      - name: Upload portable regression tests
+        if: always() && steps.portable-tests.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-portable-regression-tests
+          path: deploy/build/portable-tests
           retention-days: 7
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4

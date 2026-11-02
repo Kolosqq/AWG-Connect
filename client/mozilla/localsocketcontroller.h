@@ -6,6 +6,7 @@
 #define LOCALSOCKETCONTROLLER_H
 
 #include <QHostAddress>
+#include <QJsonObject>
 #include <QLocalSocket>
 #include <QTimer>
 #include <functional>
@@ -17,8 +18,9 @@ class QJsonObject;
 
 class LocalSocketController final : public ControllerImpl {
   Q_DISABLE_COPY_MOVE(LocalSocketController)
+  friend class TestPositiveSplitTunnel;
 
- public:
+  public:
   LocalSocketController();
   ~LocalSocketController();
 
@@ -60,6 +62,8 @@ class LocalSocketController final : public ControllerImpl {
   QByteArray m_buffer;
 
   QString m_deviceIpv4;
+  bool m_positiveSplitTunnelSupported = false;
+  QJsonObject m_pendingPositiveActivation;
   std::function<void(const QString&)> m_logCallback = nullptr;
 
   QTimer m_initializingTimer;

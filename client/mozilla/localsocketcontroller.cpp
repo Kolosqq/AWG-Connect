@@ -81,12 +81,13 @@ void LocalSocketController::errorOccurred(
 }
 
 void LocalSocketController::disconnectInternal() {
-  // We're still eReady as the Deamon is alive
-  // and can make a new connection.
-  m_daemonState = eReady;
-  m_initializingRetry = 0;
-  m_initializingTimer.stop();
-  emit disconnected();
+    m_pendingPositiveActivation = { };
+    // We're still eReady as the Deamon is alive
+    // and can make a new connection.
+    m_daemonState = eReady;
+    m_initializingRetry = 0;
+    m_initializingTimer.stop();
+    emit disconnected();
 }
 
 void LocalSocketController::initialize(const Device* device, const Keys* keys) {
@@ -103,6 +104,7 @@ void LocalSocketController::initialize(const Device* device, const Keys* keys) {
 
 void LocalSocketController::initializeInternal() {
   m_daemonState = eInitializing;
+  m_positiveSplitTunnelSupported = false;
 
 #ifdef MZ_WINDOWS
   QString path = "\\\\.\\pipe\\amneziavpn";
@@ -124,130 +126,140 @@ void LocalSocketController::daemonConnected() {
 }
 
 void LocalSocketController::activate(const QJsonObject &rawConfig) {
-  QString protocolName = rawConfig.value("protocol").toString();
-
-  int splitTunnelType = rawConfig.value("splitTunnelType").toInt();
-  QJsonArray splitTunnelSites = rawConfig.value("splitTunnelSites").toArray();
-
-  int appSplitTunnelType = rawConfig.value(amnezia::configKey::appSplitTunnelType).toInt();
-  QJsonArray splitTunnelApps = rawConfig.value(amnezia::configKey::splitTunnelApps).toArray();
-  QJsonArray allowedDns = rawConfig.value(amnezia::configKey::allowedDnsServers).toArray();
-
-  QJsonObject wgConfig = rawConfig.value(protocolName + "_config_data").toObject();
-
-  QJsonObject json;
-  json.insert("type", "activate");
-  //  json.insert("hopindex", QJsonValue((double)hop.m_hopindex));
-  json.insert("privateKey", wgConfig.value(amnezia::configKey::clientPrivKey));
-  json.insert("deviceIpv4Address", wgConfig.value(amnezia::configKey::clientIp));
-  m_deviceIpv4 = wgConfig.value(amnezia::configKey::clientIp).toString();
-
-  // set up IPv6 unique-local-address, ULA, with "fd00::/8" prefix, not globally routable.
-  // this will be default IPv6 gateway, OS recognizes that IPv6 link is local and switches to IPv4.
-  // Otherwise some OSes (Linux) try IPv6 forever and hang.
-  // https://en.wikipedia.org/wiki/Unique_local_address (RFC 4193)
-  // https://man7.org/linux/man-pages/man5/gai.conf.5.html
-
-  // simply "dead::1" is globally-routable, don't use it
-  json.insert("deviceIpv6Address", "fd58:baa6:dead::1");
-
-  json.insert("serverPublicKey", wgConfig.value(amnezia::configKey::serverPubKey));
-  json.insert("serverPskKey", wgConfig.value(amnezia::configKey::pskKey));
-  json.insert("serverIpv4AddrIn", wgConfig.value(amnezia::configKey::hostName));
-  //  json.insert("serverIpv6AddrIn", QJsonValue(hop.m_server.ipv6AddrIn()));
-  json.insert("deviceMTU", wgConfig.value(amnezia::configKey::mtu));
-
-  json.insert("serverPort", wgConfig.value(amnezia::configKey::port).toInt());
-  json.insert("serverIpv4Gateway", wgConfig.value(amnezia::configKey::hostName));
-  //  json.insert("serverIpv6Gateway", QJsonValue(hop.m_server.ipv6Gateway()));
-
-  if (wgConfig.contains(amnezia::configKey::persistentKeepAlive)) {
-    json.insert("persistentKeepalive",
-                wgConfig.value(amnezia::configKey::persistentKeepAlive).toString());
-  }
-
-  json.insert("primaryDnsServer", rawConfig.value(amnezia::configKey::dns1));
-
-  // We don't use secondary DNS if primary DNS is AmneziaDNS
-  if (!rawConfig.value(amnezia::configKey::dns1).toString().
-    contains(amnezia::protocols::dns::amneziaDnsIp)) {
-    json.insert("secondaryDnsServer", rawConfig.value(amnezia::configKey::dns2));
-  }
-
-  QJsonArray jsAllowedIPAddesses;
-
-  QJsonArray plainAllowedIP = wgConfig.value(amnezia::configKey::allowedIps).toArray();
-  QJsonArray defaultAllowedIP = { "0.0.0.0/0", "::/0" };
-
-  if (plainAllowedIP != defaultAllowedIP && !plainAllowedIP.isEmpty()) {
-    // Use AllowedIP list from WG config because of higher priority
-    for (auto v : plainAllowedIP) {
-      QString ipRange = v.toString();
-      if (ipRange.split('/').size() > 1){
-          QJsonObject range;
-          range.insert("address", ipRange.split('/')[0]);
-          range.insert("range", atoi(ipRange.split('/')[1].toLocal8Bit()));
-          range.insert("isIpv6", false);
-          jsAllowedIPAddesses.append(range);
-      } else {
-          QJsonObject range;
-          range.insert("address",ipRange);
-          range.insert("range", 32);
-          range.insert("isIpv6", false);
-          jsAllowedIPAddesses.append(range);
-      }
+#ifdef Q_OS_WIN
+    if (rawConfig.value(amnezia::configKey::appSplitTunnelType).toInt() == amnezia::AppsRouteMode::VpnOnlyForwardApps) {
+        if (m_daemonState != eReady) {
+            m_pendingPositiveActivation = rawConfig;
+            return;
+        }
+        if (!m_positiveSplitTunnelSupported) {
+            emit activationFailed(amnezia::ErrorCode::PositiveSplitTunnelServiceError);
+            return;
+        }
     }
-  } else {
+#endif
+    QString protocolName = rawConfig.value("protocol").toString();
 
-    // Use APP split tunnel
-      if (splitTunnelType == 0 || splitTunnelType == 2) {
-          QJsonObject range_ipv4;
-          range_ipv4.insert("address", "0.0.0.0");
-          range_ipv4.insert("range", 0);
-          range_ipv4.insert("isIpv6", false);
-          jsAllowedIPAddesses.append(range_ipv4);
+    int splitTunnelType = rawConfig.value("splitTunnelType").toInt();
+    QJsonArray splitTunnelSites = rawConfig.value("splitTunnelSites").toArray();
 
-          QJsonObject range_ipv6;
-          range_ipv6.insert("address", "::");
-          range_ipv6.insert("range", 0);
-          range_ipv6.insert("isIpv6", true);
-          jsAllowedIPAddesses.append(range_ipv6);
-      }
+    int appSplitTunnelType = rawConfig.value(amnezia::configKey::appSplitTunnelType).toInt();
+    QJsonArray splitTunnelApps = rawConfig.value(amnezia::configKey::splitTunnelApps).toArray();
+    QJsonArray allowedDns = rawConfig.value(amnezia::configKey::allowedDnsServers).toArray();
 
-      if (splitTunnelType == 1) {
-          for (auto v : splitTunnelSites) {
-              QString ipRange = v.toString();
-              if (ipRange.split('/').size() > 1){
-                  QJsonObject range;
-                  range.insert("address", ipRange.split('/')[0]);
-                  range.insert("range", atoi(ipRange.split('/')[1].toLocal8Bit()));
-                  range.insert("isIpv6", false);
-                  jsAllowedIPAddesses.append(range);
-              } else {
-                  QJsonObject range;
-                  range.insert("address",ipRange);
-                  range.insert("range", 32);
-                  range.insert("isIpv6", false);
-                  jsAllowedIPAddesses.append(range);
-              }
-          }
-      }
-  }
+    QJsonObject wgConfig = rawConfig.value(protocolName + "_config_data").toObject();
 
-  json.insert("allowedIPAddressRanges", jsAllowedIPAddesses);
+    QJsonObject json;
+    json.insert("type", "activate");
+    //  json.insert("hopindex", QJsonValue((double)hop.m_hopindex));
+    json.insert("privateKey", wgConfig.value(amnezia::configKey::clientPrivKey));
+    json.insert("deviceIpv4Address", wgConfig.value(amnezia::configKey::clientIp));
+    m_deviceIpv4 = wgConfig.value(amnezia::configKey::clientIp).toString();
 
-  QJsonArray jsExcludedAddresses;
-  jsExcludedAddresses.append(wgConfig.value(amnezia::configKey::hostName));
-  if (splitTunnelType == 2) {
-    for (auto v : splitTunnelSites) {
-          QString ipRange = v.toString();
-          jsExcludedAddresses.append(ipRange);
-      }
-  }
+    // set up IPv6 unique-local-address, ULA, with "fd00::/8" prefix, not globally routable.
+    // this will be default IPv6 gateway, OS recognizes that IPv6 link is local and switches to IPv4.
+    // Otherwise some OSes (Linux) try IPv6 forever and hang.
+    // https://en.wikipedia.org/wiki/Unique_local_address (RFC 4193)
+    // https://man7.org/linux/man-pages/man5/gai.conf.5.html
 
-  json.insert("excludedAddresses", jsExcludedAddresses);
+    // simply "dead::1" is globally-routable, don't use it
+    json.insert("deviceIpv6Address", "fd58:baa6:dead::1");
 
-  json.insert("vpnDisabledApps", splitTunnelApps);
+    json.insert("serverPublicKey", wgConfig.value(amnezia::configKey::serverPubKey));
+    json.insert("serverPskKey", wgConfig.value(amnezia::configKey::pskKey));
+    json.insert("serverIpv4AddrIn", wgConfig.value(amnezia::configKey::hostName));
+    //  json.insert("serverIpv6AddrIn", QJsonValue(hop.m_server.ipv6AddrIn()));
+    json.insert("deviceMTU", wgConfig.value(amnezia::configKey::mtu));
+
+    json.insert("serverPort", wgConfig.value(amnezia::configKey::port).toInt());
+    json.insert("serverIpv4Gateway", wgConfig.value(amnezia::configKey::hostName));
+    //  json.insert("serverIpv6Gateway", QJsonValue(hop.m_server.ipv6Gateway()));
+
+    if (wgConfig.contains(amnezia::configKey::persistentKeepAlive)) {
+        json.insert("persistentKeepalive", wgConfig.value(amnezia::configKey::persistentKeepAlive).toString());
+    }
+
+    json.insert("primaryDnsServer", rawConfig.value(amnezia::configKey::dns1));
+
+    // We don't use secondary DNS if primary DNS is AmneziaDNS
+    if (!rawConfig.value(amnezia::configKey::dns1).toString().contains(amnezia::protocols::dns::amneziaDnsIp)) {
+        json.insert("secondaryDnsServer", rawConfig.value(amnezia::configKey::dns2));
+    }
+
+    QJsonArray jsAllowedIPAddesses;
+
+    QJsonArray plainAllowedIP = wgConfig.value(amnezia::configKey::allowedIps).toArray();
+    QJsonArray defaultAllowedIP = { "0.0.0.0/0", "::/0" };
+
+    if (plainAllowedIP != defaultAllowedIP && !plainAllowedIP.isEmpty()) {
+        // Use AllowedIP list from WG config because of higher priority
+        for (auto v : plainAllowedIP) {
+            QString ipRange = v.toString();
+            if (ipRange.split('/').size() > 1) {
+                QJsonObject range;
+                range.insert("address", ipRange.split('/')[0]);
+                range.insert("range", atoi(ipRange.split('/')[1].toLocal8Bit()));
+                range.insert("isIpv6", false);
+                jsAllowedIPAddesses.append(range);
+            } else {
+                QJsonObject range;
+                range.insert("address", ipRange);
+                range.insert("range", 32);
+                range.insert("isIpv6", false);
+                jsAllowedIPAddesses.append(range);
+            }
+        }
+    } else {
+
+        // Use APP split tunnel
+        if (splitTunnelType == 0 || splitTunnelType == 2) {
+            QJsonObject range_ipv4;
+            range_ipv4.insert("address", "0.0.0.0");
+            range_ipv4.insert("range", 0);
+            range_ipv4.insert("isIpv6", false);
+            jsAllowedIPAddesses.append(range_ipv4);
+
+            QJsonObject range_ipv6;
+            range_ipv6.insert("address", "::");
+            range_ipv6.insert("range", 0);
+            range_ipv6.insert("isIpv6", true);
+            jsAllowedIPAddesses.append(range_ipv6);
+        }
+
+        if (splitTunnelType == 1) {
+            for (auto v : splitTunnelSites) {
+                QString ipRange = v.toString();
+                if (ipRange.split('/').size() > 1) {
+                    QJsonObject range;
+                    range.insert("address", ipRange.split('/')[0]);
+                    range.insert("range", atoi(ipRange.split('/')[1].toLocal8Bit()));
+                    range.insert("isIpv6", false);
+                    jsAllowedIPAddesses.append(range);
+                } else {
+                    QJsonObject range;
+                    range.insert("address", ipRange);
+                    range.insert("range", 32);
+                    range.insert("isIpv6", false);
+                    jsAllowedIPAddesses.append(range);
+                }
+            }
+        }
+    }
+
+    json.insert("allowedIPAddressRanges", jsAllowedIPAddesses);
+
+    QJsonArray jsExcludedAddresses;
+    jsExcludedAddresses.append(wgConfig.value(amnezia::configKey::hostName));
+    if (splitTunnelType == 2) {
+        for (auto v : splitTunnelSites) {
+            QString ipRange = v.toString();
+            jsExcludedAddresses.append(ipRange);
+        }
+    }
+
+    json.insert("excludedAddresses", jsExcludedAddresses);
+
+    json.insert("vpnDisabledApps", splitTunnelApps);
 #ifdef Q_OS_WIN
   json.insert("positiveSplitTunnel", appSplitTunnelType == amnezia::AppsRouteMode::VpnOnlyForwardApps);
 #endif
@@ -270,6 +282,7 @@ void LocalSocketController::activate(const QJsonObject &rawConfig) {
 
 void LocalSocketController::deactivate() {
   logger.debug() << "Deactivating";
+  m_pendingPositiveActivation = { };
 
   if (m_daemonState != eReady) {
     logger.debug() << "No disconnect, controller is not ready";
@@ -379,12 +392,17 @@ void LocalSocketController::parseCommand(const QByteArray& command) {
 
   logger.debug() << "Parse command:" << type;
 
+  if (type == "status") {
+      m_positiveSplitTunnelSupported = obj.value("positiveSplitTunnelSupported").toBool();
+  }
+
   if (m_daemonState == eInitializing && type == "status") {
     m_daemonState = eReady;
 
     QJsonValue connected = obj.value("connected");
     if (!connected.isBool()) {
       logger.error() << "Invalid JSON for status - connected expected";
+      m_positiveSplitTunnelSupported = false;
       return;
     }
 
@@ -404,6 +422,11 @@ void LocalSocketController::parseCommand(const QByteArray& command) {
     }
 
     emit initialized(true, connected.toBool(), datetime);
+    if (!m_pendingPositiveActivation.isEmpty()) {
+        const auto pending = m_pendingPositiveActivation;
+        m_pendingPositiveActivation = { };
+        activate(pending);
+    }
     return;
   }
 
