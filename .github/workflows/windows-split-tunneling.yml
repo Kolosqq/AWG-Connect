@@ -40,22 +40,50 @@ jobs:
           tools: tools_ifw
           dir: ${{ runner.temp }}
           set-env: true
+          cache: true
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
       - name: Install Conan
         run: python -m pip install conan==2.28.0
-      - name: Build client, service, tests and installer
+      - name: Restore native dependencies
+        id: conan-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.conan2
+          key: windows-2022-conan-2.28-release-${{ hashFiles('recipes/**', 'conanfile.py', 'cmake/recipes_bootstrap.cmake') }}
+      - name: Configure Release build
+        id: configure
         shell: cmd
-        env:
-          QT_INSTALL_DIR: ${{ runner.temp }}
-        run: deploy\build.bat --installer ifw
+        run: >-
+          cmake -S . -B deploy/build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          "-DCMAKE_PREFIX_PATH=%QT_ROOT_DIR%" -DAMNEZIA_BUILD_TESTS=ON
+          -DCONAN_INSTALL_BUILD_CONFIGURATIONS=Release
+      - name: Cache native dependencies
+        if: steps.conan-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.conan2
+          key: ${{ steps.conan-cache.outputs.cache-primary-key }}
+      - name: Build client, service and regression tests
+        run: >-
+          cmake --build deploy/build --parallel 4 --target
+          AmneziaVPN AmneziaVPN-service test_positive_split_tunnel
+          test_settings_signals test_ui_ip_model_and_controller
+          test_ui_app_st_model_and_controller test_ui_allowed_dns_model_and_controller
       - name: Run settings and split tunneling regression tests
         shell: cmd
         run: >-
           ctest --test-dir deploy\build\client\tests -C Release
           -R "^(SettingsSignalsTest|UiIpModelAndControllerTest|UiAppSTModelAndControllerTest|UiAllowedDnsModelAndControllerTest|PositiveSplitTunnelTest)$"
           --output-on-failure --no-tests=error --timeout 180
+      - name: Package installer
+        shell: pwsh
+        run: |
+          $ifw = Get-ChildItem "$env:RUNNER_TEMP/Qt/Tools/QtInstallerFramework" -Directory |
+            Sort-Object Name -Descending | Select-Object -First 1
+          if (-not $ifw) { throw 'Qt Installer Framework was not found' }
+          cpack --config deploy/build/CPackConfig.cmake -G IFW -C Release -B deploy/build "-DQTIFWDIR=$($ifw.FullName)"
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4

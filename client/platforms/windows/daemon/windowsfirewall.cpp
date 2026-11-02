@@ -1031,9 +1031,8 @@ bool WindowsFirewall::allowLoopbackTraffic(uint8_t weight,
     if (iface.type() != QNetworkInterface::Loopback) {
       continue;
     }
-    if (!allowTrafficOfAdapter(iface.index(), weight,
-                               title.arg(iface.name()))) {
-      return false;
+    if (!setAdapterTrafficAllowed(iface.index(), weight, title.arg(iface.name()), true)) {
+        return false;
     }
   }
   return true;
