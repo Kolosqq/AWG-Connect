@@ -48,6 +48,9 @@ the user. Do not change Windows security settings or install experimental
 drivers without confirmation.
 
 No positive-mode traffic test has passed yet.
+Both prepared probe executables completed HTTPS requests under the existing VPN
+and returned the same exit address. The probe correctly rejected this control
+case as evidence of positive routing; no connection settings were changed.
 
 For local regression binaries, set `QT_QPA_PLATFORM=offscreen` and
 `AMNEZIA_TEST_IPC_URL=local:amnezia-isolated-regression-tests` to avoid contacting
