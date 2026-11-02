@@ -319,63 +319,60 @@ bool WindowsSplitTunnel::excludeApps(const QStringList& appPaths) {
   return true;
 }
 
-bool WindowsSplitTunnel::start(int inetAdapterIndex, int vpnAdapterIndex) {
-  // To Start we need to send 2 things:
-  // Network info (what is vpn what is network)
-  logger.debug() << "Starting SplitTunnel";
-  DWORD bytesReturned;
-
-  if (getState() == STATE_STARTED) {
-    logger.debug() << "Driver needs Init Call";
+bool WindowsSplitTunnel::start(int inetAdapterIndex, int vpnAdapterIndex, bool positive)
+{
+    // To Start we need to send 2 things:
+    // Network info (what is vpn what is network)
+    logger.debug() << "Starting SplitTunnel";
     DWORD bytesReturned;
-    auto ok = DeviceIoControl(m_driver, IOCTL_INITIALIZE, nullptr, 0, nullptr,
-                              0, &bytesReturned, nullptr);
-    if (!ok) {
-      logger.error() << "Driver init failed. Error:" << GetLastError();
-      return false;
-    }
-  }
 
-  // Process Info (what is running already)
-  if (getState() == STATE_INITIALIZED) {
-    logger.debug() << "State is Init, requires process config";
-    auto config = generateProcessBlob();
+    if (getState() == STATE_STARTED) {
+        logger.debug() << "Driver needs Init Call";
+        DWORD bytesReturned;
+        auto ok = DeviceIoControl(m_driver, IOCTL_INITIALIZE, nullptr, 0, nullptr, 0, &bytesReturned, nullptr);
+        if (!ok) {
+            logger.error() << "Driver init failed. Error:" << GetLastError();
+            return false;
+        }
+    }
+
+    // Process Info (what is running already)
+    if (getState() == STATE_INITIALIZED) {
+        logger.debug() << "State is Init, requires process config";
+        auto config = generateProcessBlob();
+        if (config.empty()) {
+            logger.error() << "Process configuration blob is empty";
+            return false;
+        }
+        auto ok = DeviceIoControl(m_driver, IOCTL_REGISTER_PROCESSES, &config[0], (DWORD)config.size(), nullptr, 0,
+                                  &bytesReturned, nullptr);
+        if (!ok) {
+            logger.error() << "Failed to set Process Config. Error:" << GetLastError();
+            return false;
+        }
+        logger.debug() << "Set Process Config ok || new State:" << stateString();
+    }
+
+    if (getState() == STATE_INITIALIZED) {
+        logger.warning() << "Driver is still not ready after process list send";
+        return false;
+    }
+    logger.debug() << "Driver is  ready || new State:" << stateString();
+
+    auto config = generateIPConfiguration(inetAdapterIndex, vpnAdapterIndex, positive);
     if (config.empty()) {
-      logger.error() << "Process configuration blob is empty";
-      return false;
+        logger.error() << "Network configuration blob is empty. Internet adapter:" << inetAdapterIndex
+                       << "VPN adapter:" << vpnAdapterIndex;
+        return false;
     }
-    auto ok = DeviceIoControl(m_driver, IOCTL_REGISTER_PROCESSES, &config[0],
-                              (DWORD)config.size(), nullptr, 0, &bytesReturned,
-                              nullptr);
+    auto ok = DeviceIoControl(m_driver, IOCTL_REGISTER_IP_ADDRESSES, &config[0], (DWORD)config.size(), nullptr, 0,
+                              &bytesReturned, nullptr);
     if (!ok) {
-      logger.error() << "Failed to set Process Config. Error:"
-                     << GetLastError();
-      return false;
+        logger.error() << "Failed to set Network Config. Error:" << GetLastError();
+        return false;
     }
-    logger.debug() << "Set Process Config ok || new State:" << stateString();
-  }
-
-  if (getState() == STATE_INITIALIZED) {
-    logger.warning() << "Driver is still not ready after process list send";
-    return false;
-  }
-  logger.debug() << "Driver is  ready || new State:" << stateString();
-
-  auto config = generateIPConfiguration(inetAdapterIndex, vpnAdapterIndex);
-  if (config.empty()) {
-    logger.error() << "Network configuration blob is empty. Internet adapter:"
-                   << inetAdapterIndex << "VPN adapter:" << vpnAdapterIndex;
-    return false;
-  }
-  auto ok = DeviceIoControl(m_driver, IOCTL_REGISTER_IP_ADDRESSES, &config[0],
-                            (DWORD)config.size(), nullptr, 0, &bytesReturned,
-                            nullptr);
-  if (!ok) {
-    logger.error() << "Failed to set Network Config. Error:" << GetLastError();
-    return false;
-  }
-  logger.debug() << "New Network Config Applied || new State:" << stateString();
-  return true;
+    logger.debug() << "New Network Config Applied || new State:" << stateString();
+    return true;
 }
 
 void WindowsSplitTunnel::stop() {
@@ -479,26 +476,32 @@ std::vector<uint8_t> WindowsSplitTunnel::generateAppConfiguration(
   return outBuffer;
 }
 
-std::vector<std::byte> WindowsSplitTunnel::generateIPConfiguration(
-    int inetAdapterIndex, int vpnAdapterIndex) {
-  std::vector<std::byte> out(sizeof(IP_ADDRESSES_CONFIG));
+std::vector<std::byte> WindowsSplitTunnel::generateIPConfiguration(int inetAdapterIndex, int vpnAdapterIndex,
+                                                                   bool positive)
+{
+    std::vector<std::byte> out(sizeof(IP_ADDRESSES_CONFIG));
 
-  auto config = reinterpret_cast<IP_ADDRESSES_CONFIG*>(&out[0]);
+    auto config = reinterpret_cast<IP_ADDRESSES_CONFIG *>(&out[0]);
 
-  if (vpnAdapterIndex == 0) {
-    vpnAdapterIndex = WindowsCommons::VPNAdapterIndex();
-  }
-  // Always the VPN
-  if (!getAddress(vpnAdapterIndex, &config->TunnelIpv4,
-                  &config->TunnelIpv6)) {
-    return {};
-  }
-  // 2nd best route is usually the internet adapter
-  if (!getAddress(inetAdapterIndex, &config->InternetIpv4,
-                  &config->InternetIpv6)) {
-    return {};
-  };
-  return out;
+    if (vpnAdapterIndex == 0) {
+        vpnAdapterIndex = WindowsCommons::VPNAdapterIndex();
+    }
+    if (inetAdapterIndex <= 0 || vpnAdapterIndex <= 0 || inetAdapterIndex == vpnAdapterIndex) {
+        return { };
+    }
+    // Always the VPN
+    if (!getAddress(vpnAdapterIndex, &config->TunnelIpv4, &config->TunnelIpv6)) {
+        return { };
+    }
+    // 2nd best route is usually the internet adapter
+    if (!getAddress(inetAdapterIndex, &config->InternetIpv4, &config->InternetIpv6)) {
+        return { };
+    };
+    if (positive) {
+        std::swap(config->TunnelIpv4, config->InternetIpv4);
+        std::swap(config->TunnelIpv6, config->InternetIpv6);
+    }
+    return out;
 }
 bool WindowsSplitTunnel::getAddress(int adapterIndex, IN_ADDR* out_ipv4,
                                     IN6_ADDR* out_ipv6) {

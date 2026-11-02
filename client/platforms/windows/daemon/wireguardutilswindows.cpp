@@ -12,6 +12,7 @@
 
 #include <QFileInfo>
 
+#include "killswitch.h"
 #include "leakdetector.h"
 #include "logger.h"
 #include "windowsfirewall.h"
@@ -89,10 +90,25 @@ QList<WireguardUtils::PeerStatus> WireguardUtilsWindows::getPeerStatus() {
 }
 
 bool WireguardUtilsWindows::addInterface(const InterfaceConfig& config) {
-  QStringList addresses;
-  for (const IPAddress& ip : config.m_allowedIPAddressRanges) {
-    addresses.append(ip.toString());
-  }
+    if (config.m_positiveSplitTunnel) {
+        bool ipv4DefaultRoute = false;
+        for (const auto &prefix : config.m_allowedIPAddressRanges) {
+            if (prefix.prefixLength() != 0) {
+                logger.error() << "Positive split tunneling requires default AllowedIPs only";
+                return false;
+            }
+            ipv4DefaultRoute |= prefix.type() == QAbstractSocket::IPv4Protocol;
+        }
+        if (!ipv4DefaultRoute || config.m_killSwitchEnabled || KillSwitch::instance()->isStrictKillSwitchEnabled()) {
+            logger.error() << "Positive split tunneling requires IPv4 default AllowedIPs and Kill Switch off";
+            return false;
+        }
+    }
+    m_positiveSplitTunnel = config.m_positiveSplitTunnel;
+    QStringList addresses;
+    for (const IPAddress &ip : config.m_allowedIPAddressRanges) {
+        addresses.append(ip.toString());
+    }
 
   QMap<QString, QString> extraConfig;
   extraConfig["Table"] = "off";
@@ -125,6 +141,14 @@ bool WireguardUtilsWindows::addInterface(const InterfaceConfig& config) {
   }
   m_luid = luid.Value;
   m_routeMonitor = new WindowsRouteMonitor(luid.Value, this);
+
+  if (m_positiveSplitTunnel) {
+      NET_IFINDEX ifindex = 0;
+      if (ConvertInterfaceLuidToIndex(&luid, &ifindex) != NO_ERROR || !m_firewall->restrictTunnelToSplitApps(ifindex)) {
+          deleteInterface();
+          return false;
+      }
+  }
 
   if (config.m_killSwitchEnabled) {
     // Enable the windows firewall
@@ -245,7 +269,7 @@ void WireguardUtilsWindows::buildMibForwardRow(const IPAddress& prefix,
   // Set the rest of the flags for a static route.
   entry->ValidLifetime = 0xffffffff;
   entry->PreferredLifetime = 0xffffffff;
-  entry->Metric = 0;
+  entry->Metric = m_positiveSplitTunnel ? 0x7fffffff : 0;
   entry->Protocol = MIB_IPPROTO_NETMGMT;
   entry->Loopback = false;
   entry->AutoconfigureAddress = false;
@@ -255,11 +279,11 @@ void WireguardUtilsWindows::buildMibForwardRow(const IPAddress& prefix,
 }
 
 bool WireguardUtilsWindows::updateRoutePrefix(const IPAddress& prefix) {
-  if (m_routeMonitor && (prefix.prefixLength() == 0)) {
-    // If we are setting up a default route, instruct the route monitor to
-    // capture traffic to all non-excluded destinations
-    m_routeMonitor->setDetaultRouteCapture(true);
-  }
+    if (m_routeMonitor && (prefix.prefixLength() == 0) && !m_positiveSplitTunnel) {
+        // If we are setting up a default route, instruct the route monitor to
+        // capture traffic to all non-excluded destinations
+        m_routeMonitor->setDetaultRouteCapture(true);
+    }
   // Build the route
   
   MIB_IPFORWARD_ROW2 entry;

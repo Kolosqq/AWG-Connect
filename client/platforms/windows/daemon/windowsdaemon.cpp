@@ -71,7 +71,7 @@ void WindowsDaemon::activateSplitTunnel(const InterfaceConfig& config, int vpnAd
     }
 
   if (config.m_vpnDisabledApps.length() > 0) {
-      if (!m_splitTunnelManager->start(m_inetAdapterIndex, vpnAdapterIndex)) {
+      if (!m_splitTunnelManager->start(m_inetAdapterIndex, vpnAdapterIndex, config.m_positiveSplitTunnel)) {
           logger.error() << "Failed to start split tunnel";
           emit backendFailure(DaemonError::ERROR_SPLIT_TUNNEL_START_FAILURE);
           return;
@@ -108,11 +108,11 @@ bool WindowsDaemon::run(Op op, const InterfaceConfig& config) {
     return true;
   }
   if (config.m_vpnDisabledApps.length() > 0) {
-    if (!m_splitTunnelManager->start(m_inetAdapterIndex)) {
-      logger.error() << "Split tunnel start failed";
-      emit backendFailure(DaemonError::ERROR_SPLIT_TUNNEL_START_FAILURE);
-      return false;
-    };
+      if (!m_splitTunnelManager->start(m_inetAdapterIndex, 0, config.m_positiveSplitTunnel)) {
+          logger.error() << "Split tunnel start failed";
+          emit backendFailure(DaemonError::ERROR_SPLIT_TUNNEL_START_FAILURE);
+          return false;
+      };
     if (!m_splitTunnelManager->excludeApps(config.m_vpnDisabledApps)) {
       logger.error() << "Split tunnel app exclusion failed";
       emit backendFailure(DaemonError::ERROR_SPLIT_TUNNEL_EXCLUDE_FAILURE);

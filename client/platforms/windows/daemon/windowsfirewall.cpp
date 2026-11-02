@@ -210,8 +210,7 @@ bool WindowsFirewall::enableInterface(int vpnAdapterIndex) {
       return false;
     }
   } else
-  FW_OK(allowTrafficOfAdapter(vpnAdapterIndex, MED_WEIGHT,
-                                  "Allow usage of VPN Adapter"));
+      FW_OK(setAdapterTrafficAllowed(vpnAdapterIndex, MED_WEIGHT, "Allow usage of VPN Adapter", true));
   FW_OK(allowDHCPTraffic(MED_WEIGHT, "Allow DHCP Traffic"));
   FW_OK(allowHyperVTraffic(MAX_WEIGHT, "Allow Hyper-V Traffic"));
   FW_OK(allowTrafficForAppOnAll(getCurrentPath(), MAX_WEIGHT,
@@ -489,51 +488,66 @@ bool WindowsFirewall::allowTrafficForAppOnAll(const QString& exePath,
   return true;
 }
 
-bool WindowsFirewall::allowTrafficOfAdapter(int networkAdapter, uint8_t weight,
-                                            const QString& title) {
-  FWPM_FILTER_CONDITION0 conds;
-  // Condition: Request must be targeting the TUN interface
-  conds.fieldKey = FWPM_CONDITION_INTERFACE_INDEX;
-  conds.matchType = FWP_MATCH_EQUAL;
-  conds.conditionValue.type = FWP_UINT32;
-  conds.conditionValue.uint32 = networkAdapter;
+bool WindowsFirewall::restrictTunnelToSplitApps(int vpnAdapterIndex)
+{
+    if (vpnAdapterIndex <= 0 || FwpmTransactionBegin(m_sessionHandle, 0) != ERROR_SUCCESS) {
+        return false;
+    }
+    const auto previousRules = m_activeRules;
+    if (!setAdapterTrafficAllowed(vpnAdapterIndex, LOW_WEIGHT, "Only selected apps may use VPN", false)) {
+        FwpmTransactionAbort(m_sessionHandle);
+        m_activeRules = previousRules;
+        return false;
+    }
+    if (FwpmTransactionCommit(m_sessionHandle) != ERROR_SUCCESS) {
+        FwpmTransactionAbort(m_sessionHandle);
+        m_activeRules = previousRules;
+        return false;
+    }
+    return true;
+}
 
-  // Assemble the Filter base
-  FWPM_FILTER0 filter;
-  memset(&filter, 0, sizeof(filter));
-  filter.filterCondition = &conds;
-  filter.numFilterConditions = 1;
-  filter.action.type = FWP_ACTION_PERMIT;
-  filter.weight.type = FWP_UINT8;
-  filter.weight.uint8 = weight;
-  filter.subLayerKey = ST_FW_WINFW_BASELINE_SUBLAYER_KEY;
+bool WindowsFirewall::setAdapterTrafficAllowed(int networkAdapter, uint8_t weight, const QString &title, bool allowed)
+{
+    FWPM_FILTER_CONDITION0 conds;
+    // Condition: Request must be targeting the TUN interface
+    conds.fieldKey = FWPM_CONDITION_INTERFACE_INDEX;
+    conds.matchType = FWP_MATCH_EQUAL;
+    conds.conditionValue.type = FWP_UINT32;
+    conds.conditionValue.uint32 = networkAdapter;
 
-  QString description("Allow %0 traffic on Adapter %1");
-  // #1 Permit outbound IPv4 traffic.
-  filter.layerKey = FWPM_LAYER_ALE_AUTH_CONNECT_V4;
-  if (!enableFilter(&filter, title,
-                    description.arg("out").arg(networkAdapter))) {
-    return false;
-  }
-  // #2 Permit inbound IPv4 traffic.
-  filter.layerKey = FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V4;
-  if (!enableFilter(&filter, title,
-                    description.arg("in").arg(networkAdapter))) {
-    return false;
-  }
-  // #3 Permit outbound IPv6 traffic.
-  filter.layerKey = FWPM_LAYER_ALE_AUTH_CONNECT_V6;
-  if (!enableFilter(&filter, title,
-                    description.arg("out").arg(networkAdapter))) {
-    return false;
-  }
-  // #4 Permit inbound IPv6 traffic.
-  filter.layerKey = FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V6;
-  if (!enableFilter(&filter, title,
-                    description.arg("in").arg(networkAdapter))) {
-    return false;
-  }
-  return true;
+    // Assemble the Filter base
+    FWPM_FILTER0 filter;
+    memset(&filter, 0, sizeof(filter));
+    filter.filterCondition = &conds;
+    filter.numFilterConditions = 1;
+    filter.action.type = allowed ? FWP_ACTION_PERMIT : FWP_ACTION_BLOCK;
+    filter.weight.type = FWP_UINT8;
+    filter.weight.uint8 = weight;
+    filter.subLayerKey = ST_FW_WINFW_BASELINE_SUBLAYER_KEY;
+
+    QString description = allowed ? "Allow %0 traffic on Adapter %1" : "Block %0 traffic on Adapter %1";
+    // #1 Permit outbound IPv4 traffic.
+    filter.layerKey = FWPM_LAYER_ALE_AUTH_CONNECT_V4;
+    if (!enableFilter(&filter, title, description.arg("out").arg(networkAdapter))) {
+        return false;
+    }
+    // #2 Permit inbound IPv4 traffic.
+    filter.layerKey = FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V4;
+    if (!enableFilter(&filter, title, description.arg("in").arg(networkAdapter))) {
+        return false;
+    }
+    // #3 Permit outbound IPv6 traffic.
+    filter.layerKey = FWPM_LAYER_ALE_AUTH_CONNECT_V6;
+    if (!enableFilter(&filter, title, description.arg("out").arg(networkAdapter))) {
+        return false;
+    }
+    // #4 Permit inbound IPv6 traffic.
+    filter.layerKey = FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V6;
+    if (!enableFilter(&filter, title, description.arg("in").arg(networkAdapter))) {
+        return false;
+    }
+    return true;
 }
 
 bool WindowsFirewall::allowTrafficTo(const IPAddress& addr, int weight,

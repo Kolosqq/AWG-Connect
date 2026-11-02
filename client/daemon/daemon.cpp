@@ -166,26 +166,30 @@ bool Daemon::activate(const InterfaceConfig& config) {
 }
 
 bool Daemon::maybeUpdateResolvers(const InterfaceConfig& config) {
-  if ((config.m_hopType == InterfaceConfig::MultiHopExit) ||
-      (config.m_hopType == InterfaceConfig::SingleHop)) {
-    QList<QHostAddress> resolvers;
-    resolvers.append(QHostAddress(config.m_primaryDnsServer));
-    if (!config.m_secondaryDnsServer.isEmpty()) {
-        resolvers.append(QHostAddress(config.m_secondaryDnsServer));
+#ifdef Q_OS_WIN
+    if (config.m_positiveSplitTunnel) {
+        return true;
+    }
+#endif
+    if ((config.m_hopType == InterfaceConfig::MultiHopExit) || (config.m_hopType == InterfaceConfig::SingleHop)) {
+        QList<QHostAddress> resolvers;
+        resolvers.append(QHostAddress(config.m_primaryDnsServer));
+        if (!config.m_secondaryDnsServer.isEmpty()) {
+            resolvers.append(QHostAddress(config.m_secondaryDnsServer));
+        }
+
+        // If the DNS is not the Gateway, it's a user defined DNS
+        // thus, not add any other :)
+        if (config.m_primaryDnsServer == config.m_serverIpv4Gateway) {
+            resolvers.append(QHostAddress(config.m_serverIpv6Gateway));
+        }
+
+        if (!dnsutils()->updateResolvers(wgutils()->interfaceName(), resolvers)) {
+            return false;
+        }
     }
 
-    // If the DNS is not the Gateway, it's a user defined DNS
-    // thus, not add any other :)
-    if (config.m_primaryDnsServer == config.m_serverIpv4Gateway) {
-      resolvers.append(QHostAddress(config.m_serverIpv6Gateway));
-    }
-
-    if (!dnsutils()->updateResolvers(wgutils()->interfaceName(), resolvers)) {
-      return false;
-    }
-  }
-
-  return true;
+    return true;
 }
 
 // static
@@ -386,6 +390,16 @@ bool Daemon::parseConfig(const QJsonObject& obj, InterfaceConfig& config) {
   if (!parseStringList(obj, "vpnDisabledApps", config.m_vpnDisabledApps)) {
     return false;
   }
+  const auto positiveSplitTunnel = obj.value("positiveSplitTunnel");
+  if (!positiveSplitTunnel.isUndefined() && !positiveSplitTunnel.isBool()) {
+      return false;
+  }
+  config.m_positiveSplitTunnel = positiveSplitTunnel.toBool();
+#ifndef Q_OS_WIN
+  if (config.m_positiveSplitTunnel) {
+      return false;
+  }
+#endif
   if (!parseStringList(obj, "allowedDnsServers", config.m_allowedDnsServers)) {
     return false;
   }
@@ -529,11 +543,11 @@ bool Daemon::supportServerSwitching(const InterfaceConfig& config) const {
   const InterfaceConfig& current =
       m_connections.value(config.m_hopType).m_config;
 
-  return current.m_privateKey == config.m_privateKey &&
-         current.m_deviceIpv4Address == config.m_deviceIpv4Address &&
-         current.m_deviceIpv6Address == config.m_deviceIpv6Address &&
-         current.m_serverIpv4Gateway == config.m_serverIpv4Gateway &&
-         current.m_serverIpv6Gateway == config.m_serverIpv6Gateway;
+  return current.m_privateKey == config.m_privateKey && current.m_positiveSplitTunnel == config.m_positiveSplitTunnel
+          && current.m_deviceIpv4Address == config.m_deviceIpv4Address
+          && current.m_deviceIpv6Address == config.m_deviceIpv6Address
+          && current.m_serverIpv4Gateway == config.m_serverIpv4Gateway
+          && current.m_serverIpv6Gateway == config.m_serverIpv6Gateway;
 }
 
 bool Daemon::switchServer(const InterfaceConfig& config) {

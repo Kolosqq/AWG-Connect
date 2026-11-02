@@ -25,10 +25,11 @@
 #include "logger.h"
 #include "daemon/daemonerrors.h"
 
-#include "core/utils/protocolEnum.h"
 #include "core/protocols/protocolUtils.h"
 #include "core/utils/constants/configKeys.h"
 #include "core/utils/constants/protocolConstants.h"
+#include "core/utils/protocolEnum.h"
+#include "core/utils/routeModes.h"
 
 // How many times do we try to reconnect.
 constexpr int MAX_CONNECTION_RETRY = 10;
@@ -247,6 +248,9 @@ void LocalSocketController::activate(const QJsonObject &rawConfig) {
   json.insert("excludedAddresses", jsExcludedAddresses);
 
   json.insert("vpnDisabledApps", splitTunnelApps);
+#ifdef Q_OS_WIN
+  json.insert("positiveSplitTunnel", appSplitTunnelType == amnezia::AppsRouteMode::VpnOnlyForwardApps);
+#endif
 
   json.insert("allowedDnsServers", allowedDns);
 

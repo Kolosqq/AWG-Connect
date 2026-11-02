@@ -1,5 +1,7 @@
 #include "vpnConnection.h"
 
+#include <algorithm>
+
 #include <QDebug>
 #include <QEventLoop>
 #include <QFile>
@@ -329,6 +331,26 @@ void VpnConnection::connectToVpn(const QString &serverId, DockerContainer contai
         return;
     }
 
+#ifdef Q_OS_WIN
+    if (m_appSettingsRepository->isAppsSplitTunnelingEnabled()
+        && m_appSettingsRepository->appsRouteMode() == AppsRouteMode::VpnOnlyForwardApps) {
+        const QString protocolName = vpnConfiguration.value(configKey::protocol).toString();
+        const auto allowedIps =
+                vpnConfiguration.value(protocolName + "_config_data").toObject().value(configKey::allowedIps).toArray();
+        const bool fullTunnel = allowedIps.isEmpty()
+                || (allowedIps.contains("0.0.0.0/0")
+                    && std::all_of(allowedIps.begin(), allowedIps.end(), [](const QJsonValue &value) {
+                           return value == QJsonValue("0.0.0.0/0") || value == QJsonValue("::/0");
+                       }));
+        if ((!ContainerUtils::isAwgContainer(container) && container != DockerContainer::WireGuard)
+            || m_appSettingsRepository->isSitesSplitTunnelingEnabled() || m_appSettingsRepository->isKillSwitchEnabled()
+            || m_appSettingsRepository->isStrictKillSwitchEnabled() || !fullTunnel) {
+            emit vpnProtocolError(ErrorCode::PositiveSplitTunnelConfigurationError);
+            return;
+        }
+    }
+#endif
+
     qDebug() << QString("Trying to connect to VPN, server id is %1, container is %2, route mode is")
                         .arg(serverId)
                         .arg(ContainerUtils::containerToString(container))
@@ -507,7 +529,11 @@ void VpnConnection::appendSplitTunnelingConfig()
             appsJsonArray.append(app.appPath.isEmpty() ? app.packageName : app.appPath);
         }
 
-        if (appsJsonArray.isEmpty()) {
+        if (appsJsonArray.isEmpty()
+#ifdef Q_OS_WIN
+            && appsRouteMode != AppsRouteMode::VpnOnlyForwardApps
+#endif
+        ) {
             appsRouteMode = amnezia::AppsRouteMode::VpnAllApps;
         }
     }

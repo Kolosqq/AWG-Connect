@@ -64,6 +64,7 @@ QJsonObject InterfaceConfig::toJson() const {
     disabledApps.append(QJsonValue(i));
   }
   json.insert("vpnDisabledApps", disabledApps);
+  json.insert("positiveSplitTunnel", m_positiveSplitTunnel);
 
   return json;
 }
@@ -104,18 +105,18 @@ QString InterfaceConfig::toWgConf(const QMap<QString, QString>& extra) const {
     out << "MTU = " << m_deviceMTU << "\n";
   }
 
-  if (!m_primaryDnsServer.isEmpty()) {
-    QStringList dnsServers;
-    dnsServers.append(m_primaryDnsServer);
-    if (!m_secondaryDnsServer.isEmpty()) {
-        dnsServers.append(m_secondaryDnsServer);
-    }
-    // If the DNS is not the Gateway, it's a user defined DNS
-    // thus, not add any other :)
-    if (m_primaryDnsServer == m_serverIpv4Gateway) {
-      dnsServers.append(m_serverIpv6Gateway);
-    }
-    out << "DNS = " << dnsServers.join(", ") << "\n";
+  if (!m_positiveSplitTunnel && !m_primaryDnsServer.isEmpty()) {
+      QStringList dnsServers;
+      dnsServers.append(m_primaryDnsServer);
+      if (!m_secondaryDnsServer.isEmpty()) {
+          dnsServers.append(m_secondaryDnsServer);
+      }
+      // If the DNS is not the Gateway, it's a user defined DNS
+      // thus, not add any other :)
+      if (m_primaryDnsServer == m_serverIpv4Gateway) {
+          dnsServers.append(m_serverIpv6Gateway);
+      }
+      out << "DNS = " << dnsServers.join(", ") << "\n";
   }
 
   if (!m_junkPacketCount.isEmpty()) {

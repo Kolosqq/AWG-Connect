@@ -4,14 +4,20 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QProcessEnvironment>
+#include <QQmlComponent>
+#include <QQmlContext>
+#include <QQuickStyle>
 #include <QSignalSpy>
 #include <QTemporaryDir>
-#include <QUuid>
 #include <QTest>
+#include <QUuid>
 
-#include "utils/testCoreController.h"
 #include "core/models/serverDescription.h"
 #include "secureQSettings.h"
+#include "ui/models/containerProps.h"
+#include "ui/models/installedAppsModel.h"
+#include "ui/utils/pageEnum.h"
+#include "utils/testCoreController.h"
 #include "vpnConnection.h"
 
 using namespace amnezia;
@@ -25,6 +31,50 @@ private:
     SecureQSettings *m_settings;
 
 private slots:
+    void testPageLoads()
+    {
+        QQuickStyle::setStyle("Basic");
+        PageLoader::declareQmlPageEnum();
+        qmlRegisterType<InstalledAppsModel>("InstalledAppsModel", 1, 0, "InstalledAppsModel");
+        ContainerProps containerProps;
+        qmlRegisterSingletonInstance("ContainerProps", 1, 0, "ContainerProps", &containerProps);
+        QQmlApplicationEngine engine;
+        engine.addImportPath(QStringLiteral(AMNEZIA_TEST_QML_DIR "/Modules"));
+        engine.rootContext()->setContextProperty("windowHeight", 680);
+        engine.rootContext()->setContextProperty("windowWidth", 380);
+        auto vpnConnection = QSharedPointer<VpnConnection>::create(nullptr, nullptr);
+        TestCoreController controller(vpnConnection, m_settings, &engine);
+        QQmlComponent component(
+                &engine,
+                QUrl::fromLocalFile(QStringLiteral(AMNEZIA_TEST_QML_DIR "/Pages2/PageSettingsAppSplitTunneling.qml")));
+        QTRY_VERIFY_WITH_TIMEOUT(component.status() != QQmlComponent::Loading, 10000);
+        QVERIFY2(component.isReady(), qPrintable(component.errorString()));
+        QScopedPointer<QObject> page(component.create());
+        QVERIFY2(page, qPrintable(component.errorString()));
+        QVERIFY(page->property("pageEnabled").toBool());
+        controller.m_appSplitTunnelingUiController->setRouteMode(AppsRouteMode::VpnOnlyForwardApps);
+        QCOMPARE(page->property("routeModeIndex").toInt(), 0);
+        controller.m_appSplitTunnelingUiController->setRouteMode(AppsRouteMode::VpnAllExceptApps);
+        QCOMPARE(page->property("routeModeIndex").toInt(), 1);
+    }
+
+    void testSeparateApplicationLists()
+    {
+        auto controller = m_coreController->m_appSplitTunnelingUiController;
+        auto model = m_coreController->m_appSplitTunnelingModel;
+        controller->setRouteMode(AppsRouteMode::VpnOnlyForwardApps);
+        QCOMPARE(model->rowCount(), 0);
+        controller->addApp(QCoreApplication::applicationFilePath());
+        QCOMPARE(model->rowCount(), 1);
+        controller->setRouteMode(AppsRouteMode::VpnAllExceptApps);
+        QCOMPARE(model->rowCount(), 0);
+        controller->setRouteMode(AppsRouteMode::VpnOnlyForwardApps);
+        QCOMPARE(model->rowCount(), 1);
+        controller->removeApp(0);
+        QCOMPARE(controller->getRouteMode(), int(AppsRouteMode::VpnOnlyForwardApps));
+        QCOMPARE(model->rowCount(), 0);
+    }
+
     void initTestCase()
     {
         QString testOrg = "AmneziaVPN-Test-" + QUuid::createUuid().toString();

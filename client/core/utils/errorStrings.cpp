@@ -13,6 +13,11 @@ QString errorString(ErrorCode code) {
     case(ErrorCode::NotImplementedError): errorMessage = QObject::tr("Function not implemented"); break;
     case(ErrorCode::AmneziaServiceNotRunning): errorMessage = QObject::tr("Background service is not running"); break;
     case(ErrorCode::NotSupportedOnThisPlatform): errorMessage = QObject::tr("The selected protocol is not supported on the current platform"); break;
+    case ErrorCode::PositiveSplitTunnelConfigurationError:
+        errorMessage = QObject::tr(
+                "On Windows, Via VPN app mode requires AmneziaWG or WireGuard, IPv4 AllowedIPs 0.0.0.0/0, and both "
+                "site split tunneling and Kill Switch turned off. Settings have not been changed.");
+        break;
 
     // Server errors
     case(ErrorCode::ServerCheckFailed): errorMessage = QObject::tr("Server check failed"); break;

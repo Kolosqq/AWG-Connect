@@ -45,8 +45,9 @@ class WindowsFirewall final : public QObject {
   bool disableKillSwitch();
   bool allowAllTraffic();
   bool allowTrafficRange(const QStringList& ranges);
+  bool restrictTunnelToSplitApps(int vpnAdapterIndex);
 
- private:
+  private:
   static bool initSublayer();
   WindowsFirewall(HANDLE session, QObject* parent);
   HANDLE m_sessionHandle;
@@ -65,8 +66,7 @@ class WindowsFirewall final : public QObject {
                       const QString& peer = QString());
   bool allowTrafficTo(const QHostAddress& targetIP, uint port, int weight,
                       const QString& title, const QString& peer = QString());
-  bool allowTrafficOfAdapter(int networkAdapter, uint8_t weight,
-                             const QString& title);
+  bool setAdapterTrafficAllowed(int networkAdapter, uint8_t weight, const QString &title, bool allowed);
   bool allowDHCPTraffic(uint8_t weight, const QString& title);
   bool allowHyperVTraffic(uint8_t weight, const QString& title);
   bool allowLoopbackTraffic(uint8_t weight, const QString& title);

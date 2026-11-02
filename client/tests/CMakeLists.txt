@@ -23,6 +23,7 @@ endfunction()
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
+add_compile_definitions(AMNEZIA_TEST_QML_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../ui/qml")
 
 qt6_add_resources(TEST_QRC
     ../server_scripts/serverScripts.qrc
@@ -62,6 +63,13 @@ target_include_directories(test_common PUBLIC
 )
 
 if(NOT ANDROID)
+    add_executable(test_positive_split_tunnel
+        testPositiveSplitTunnel.cpp
+        ../daemon/daemon.cpp
+        ../daemon/interfaceconfig.cpp
+    )
+    target_link_libraries(test_positive_split_tunnel PRIVATE Qt6::Test test_common)
+
     add_executable(test_multiple_imports
         testMultipleImports.cpp
     )
@@ -469,6 +477,7 @@ enable_testing()
 
 if(NOT ANDROID)
     add_test(NAME MultipleImportsTest              COMMAND test_multiple_imports)
+    add_test(NAME PositiveSplitTunnelTest           COMMAND test_positive_split_tunnel)
     add_test(NAME ServerEditTest                   COMMAND test_server_edit)
     add_test(NAME DefaultServerChangeTest          COMMAND test_default_server_change)
     add_test(NAME ServerEdgeCasesTest              COMMAND test_server_edge_cases)
