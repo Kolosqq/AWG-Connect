@@ -5,7 +5,6 @@
 #ifndef CONTROLLERIMPL_H
 #define CONTROLLERIMPL_H
 
-#include "core/utils/errorCodes.h"
 #include <QDateTime>
 #include <QObject>
 #include <functional>
@@ -76,7 +75,7 @@ class ControllerImpl : public QObject {
   void connected(const QString& pubkey,
                  const QDateTime& connectionTimestamp = QDateTime());
   void disconnected();
-  void activationFailed(amnezia::ErrorCode error);
+  void positiveSplitTunnelUnsupported();
 
   // This method should be emitted after a checkStatus() call.
   // "serverIpv4Gateway" is the current VPN tunnel gateway.

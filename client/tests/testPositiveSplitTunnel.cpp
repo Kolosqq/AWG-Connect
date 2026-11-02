@@ -69,7 +69,7 @@ private slots:
         const auto name = "amnezia-positive-test-" + QUuid::createUuid().toString(QUuid::Id128);
         QVERIFY(server.listen(name));
         LocalSocketController controller;
-        QSignalSpy failed(&controller, &ControllerImpl::activationFailed);
+        QSignalSpy failed(&controller, &ControllerImpl::positiveSplitTunnelUnsupported);
         controller.m_daemonState = LocalSocketController::eInitializing;
         controller.m_socket->connectToServer(name);
         QTRY_VERIFY(server.hasPendingConnections());
@@ -97,8 +97,6 @@ private slots:
             QCOMPARE(failed.count(), 0);
         } else {
             QTRY_COMPARE(failed.count(), 1);
-            QCOMPARE(failed.first().first().value<amnezia::ErrorCode>(),
-                     amnezia::ErrorCode::PositiveSplitTunnelServiceError);
             QCOMPARE(peer->bytesAvailable(), qint64(0));
         }
         QVERIFY(controller.m_pendingPositiveActivation.isEmpty());

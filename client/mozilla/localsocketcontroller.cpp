@@ -133,7 +133,7 @@ void LocalSocketController::activate(const QJsonObject &rawConfig) {
             return;
         }
         if (!m_positiveSplitTunnelSupported) {
-            emit activationFailed(amnezia::ErrorCode::PositiveSplitTunnelServiceError);
+            emit positiveSplitTunnelUnsupported();
             return;
         }
     }
