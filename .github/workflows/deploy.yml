@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - '**'
+      - '!feature/awg-split-tunneling'
 
 env:
   QT_MIRROR: https://mirrors.ocf.berkeley.edu/qt/ # https://download.qt.io/static/mirrorlist/
