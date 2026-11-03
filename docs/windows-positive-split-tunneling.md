@@ -72,6 +72,9 @@ If any selected executable path cannot be converted for the driver, activation
 fails rather than silently using a partial selection.
 The client requires positive-mode support in the service status handshake; an
 older service is rejected before sending an activation request.
+Failed positive-mode activation stops application redirection and removes the
+partially created interface through the existing deactivation path. This
+privileged rollback still requires a live failure-path check.
 
 An empty positive list keeps all applications direct. The ordinary exclusion
 mode and its saved list remain separate. System DNS is left unchanged, including

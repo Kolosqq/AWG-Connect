@@ -50,6 +50,20 @@ WindowsDaemon::~WindowsDaemon() {
   logger.debug() << "Daemon released";
 }
 
+bool WindowsDaemon::activate(const InterfaceConfig &config)
+{
+    const bool activated = Daemon::activate(config);
+    if (!activated && config.m_positiveSplitTunnel) {
+        if (m_splitTunnelManager) {
+            m_splitTunnelManager->stop();
+        }
+        if (!deactivate(false)) {
+            logger.error() << "Failed to clean up positive split tunneling activation";
+        }
+    }
+    return activated;
+}
+
 void WindowsDaemon::prepareActivation(const InterfaceConfig& config, int inetAdapterIndex) {
   // Before creating the interface we need to check which adapter
   // routes to the server endpoint

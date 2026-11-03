@@ -165,6 +165,7 @@ bool WireguardUtilsWindows::addInterface(const InterfaceConfig& config) {
 bool WireguardUtilsWindows::deleteInterface() {
   if (m_routeMonitor) {
     m_routeMonitor->deleteLater();
+    m_routeMonitor = nullptr;
   }
 
   m_firewall->disableKillSwitch();
