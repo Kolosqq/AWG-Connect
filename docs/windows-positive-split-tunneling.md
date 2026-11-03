@@ -113,6 +113,20 @@ IPv6, explicit socket bindings, existing sockets and reconnects remains unverifi
 - The installer and service have not been run on the user's host. Positive
   routing, privileged rollback and reconnect behavior still need live testing.
 
+## Public gateway build parameters
+
+The first fork installer omitted the gateway public key and discovery endpoints,
+causing error 1105 for Premium, Free and update requests. The Windows workflow now
+extracts these public client parameters from the official upstream 5.1.0.6 Android
+release without running its code. The package and each selected parameter are
+pinned by SHA-256 in `deploy/windows/prepare-public-gateway.py`; mismatches stop
+the build. No subscription credentials or VPN keys are used.
+
+`WindowsBuildReadinessTest` checks the compiled production public-key fingerprint
+and initializes the gateway library without sending requests. Authenticated
+Premium connections still require a user-controlled runtime check. The separate
+report of a native `.conf` import failure is deferred at the user's request.
+
 ## Manual traffic check
 
 Do not run a second VPN connection over the existing AWG connection and count

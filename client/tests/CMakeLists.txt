@@ -63,6 +63,11 @@ target_include_directories(test_common PUBLIC
 )
 
 if(NOT ANDROID)
+    if(WIN32)
+        add_executable(test_windows_build_readiness testWindowsBuildReadiness.cpp)
+        target_link_libraries(test_windows_build_readiness PRIVATE Qt6::Test test_common)
+        add_test(NAME WindowsBuildReadinessTest COMMAND test_windows_build_readiness)
+    endif()
     add_executable(test_positive_split_tunnel
         testPositiveSplitTunnel.cpp
         ../daemon/daemon.cpp

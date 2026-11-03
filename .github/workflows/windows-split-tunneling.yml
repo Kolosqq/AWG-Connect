@@ -31,6 +31,8 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
+      - name: Prepare verified public gateway parameters
+        run: python deploy/windows/prepare-public-gateway.py
       - uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
@@ -70,14 +72,14 @@ jobs:
         id: build
         run: >-
           cmake --build deploy/build --parallel 4 --target
-          AmneziaVPN AmneziaVPN-service test_positive_split_tunnel
+          AmneziaVPN AmneziaVPN-service test_positive_split_tunnel test_windows_build_readiness
           test_settings_signals test_ui_ip_model_and_controller
           test_ui_app_st_model_and_controller test_ui_allowed_dns_model_and_controller
       - name: Run settings and split tunneling regression tests
         shell: cmd
         run: >-
           ctest --test-dir deploy\build\client\tests -C Release
-          -R "^(SettingsSignalsTest|UiIpModelAndControllerTest|UiAppSTModelAndControllerTest|UiAllowedDnsModelAndControllerTest|PositiveSplitTunnelTest)$"
+          -R "^(SettingsSignalsTest|UiIpModelAndControllerTest|UiAppSTModelAndControllerTest|UiAllowedDnsModelAndControllerTest|PositiveSplitTunnelTest|WindowsBuildReadinessTest)$"
           --output-on-failure --no-tests=error --timeout 180
       - name: Stage portable regression tests
         id: portable-tests

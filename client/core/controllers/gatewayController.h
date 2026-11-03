@@ -29,6 +29,7 @@ public:
     QFuture<QPair<amnezia::ErrorCode, QByteArray>> postAsync(const QString &endpoint, const QJsonObject apiPayload);
 
 private:
+    friend class TestWindowsBuildReadiness;
     void prepareRequest();
     QStringList requestHosts() const;
 
