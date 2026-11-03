@@ -182,6 +182,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif()
 
 if(WIN32)
+    set_target_properties(${PROJECT} PROPERTIES WIN32_EXECUTABLE TRUE)
     configure_file(
         ${CMAKE_CURRENT_LIST_DIR}/platforms/windows/amneziavpn.rc.in
         ${CMAKE_CURRENT_BINARY_DIR}/amneziavpn.rc

@@ -48,10 +48,12 @@ regression executables may run without touching the installed service. Hand over
 the installer and connection checks to the user for the VM. Do not change Windows
 security settings or install experimental drivers without confirmation.
 
-No positive-mode traffic test has passed yet.
-Both prepared probe executables completed HTTPS requests under the existing VPN
-and returned the same exit address. The probe correctly rejected this control
-case as evidence of positive routing; no connection settings were changed.
+The user tested source build `5313c060` in the VM and confirmed that one browser
+used the VPN while the other used the direct exit after disabling Kill Switch.
+Premium key connection and native `.conf` import also succeeded. This is a
+user-reported VM test, not an automated driver integration test. Earlier host
+probe checks under the existing VPN were only a control case; no host connection
+settings were changed.
 
 For local regression binaries, set `QT_QPA_PLATFORM=offscreen` and
 `AMNEZIA_TEST_IPC_URL=local:amnezia-isolated-regression-tests` to avoid contacting
@@ -111,8 +113,8 @@ IPv6, explicit socket bindings, existing sockets and reconnects remains unverifi
   `d5a9ad45736bb70fd0cb1c4477cbcd8a2b9ed7423eb223fe83b530869f2c6112`.
 - The fork installer is unsigned. Its bundled split-tunnel driver has the same
   pinned hash listed above and a valid Authenticode signature.
-- The installer and service have not been run on the user's host. Positive
-  routing, privileged rollback and reconnect behavior still need live testing.
+- The installer and service have not been run on the user's host. Privileged rollback, disconnect failure behavior and broader reconnect
+  scenarios still need live testing; the initial two-browser test is recorded above.
 
 ## Public gateway build parameters
 
@@ -136,6 +138,22 @@ cleanup, no failures or skips. Route, DNS and adapter-state fingerprints were
 unchanged. The driver retained its pinned SHA-256 and valid Authenticode signature.
 Installer SHA-256:
 `651ff6b4d6d9477839aa37d456241085734cc90a8b7c8aea0193b8db69e4fc0c`.
+
+## Kill Switch compatibility assessment
+
+The current positive mode requires both Kill Switch options to remain off.
+The pending-error fix reports this requirement instead of leaving the UI in
+Preparing; it does not add Kill Switch support or change saved settings.
+
+Existing `enablePeerTraffic` rules block traffic to the peer's AllowedIPs outside
+the permitted VPN interface. Keeping those rules unchanged would also block the
+unselected applications that must connect directly. Supporting Kill Switch would
+require application-specific blocking for the selected set while retaining
+direct access for other applications. The existing WFP integration offers a
+possible implementation path without a new driver, but interaction with driver
+permit rules, child processes, IPv6 and disconnect/reconnect lifecycle needs
+validation. Strict mode also needs a defined policy while the VPN is stopped.
+Development of this extension awaits the user's explicit confirmation.
 
 ## Manual traffic check
 
