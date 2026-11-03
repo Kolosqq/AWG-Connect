@@ -40,12 +40,13 @@ implementation candidate, not a demonstrated working positive mode.
 
 ## Host testing constraints
 
-The user has authorized testing on the current Windows host instead of a VM.
-An existing AWG 3.1 connection must remain active. Do not install or start the
-fork's service, change routes, stop the existing tunnel, or perform connection
-tests automatically on this host. Hand over any test requiring a VPN switch to
-the user. Do not change Windows security settings or install experimental
-drivers without confirmation.
+The user clarified that the ordinary AmneziaVPN installation runs on this host
+and the fork is tested by the user in a Windows VM. Keep the host VPN active.
+Do not install or start the fork's service, change routes, stop the existing
+tunnel, or perform connection tests automatically on the host. Local isolated
+regression executables may run without touching the installed service. Hand over
+the installer and connection checks to the user for the VM. Do not change Windows
+security settings or install experimental drivers without confirmation.
 
 No positive-mode traffic test has passed yet.
 Both prepared probe executables completed HTTPS requests under the existing VPN
@@ -127,13 +128,27 @@ and initializes the gateway library without sending requests. Authenticated
 Premium connections still require a user-controlled runtime check. The separate
 report of a native `.conf` import failure is deferred at the user's request.
 
+The client, service, all six regression suites and installer built successfully
+from `5313c060` in
+https://github.com/Kolosqq/AWG-Connect/actions/runs/41639066554.
+All six suites also passed on the host: 38 Qt Test results including setup and
+cleanup, no failures or skips. Route, DNS and adapter-state fingerprints were
+unchanged. The driver retained its pinned SHA-256 and valid Authenticode signature.
+Installer SHA-256:
+`651ff6b4d6d9477839aa37d456241085734cc90a8b7c8aea0193b8db69e4fc0c`.
+
 ## Manual traffic check
 
-Do not run a second VPN connection over the existing AWG connection and count
-that as a direct-routing test. The user must choose when to switch connections.
+Do not run two guest VPN connections simultaneously and count that as a
+direct-routing test. The user must choose when to switch guest connections.
 The installer uses upstream application/service names and may replace an
 existing AmneziaVPN installation. Keep the original installer and a private
 backup outside Git before switching. Do not upload configurations or test logs.
+
+Perform the following traffic checks inside the test VM. Obtain its baseline
+exit while the guest VPN is disconnected; the host VPN can remain active. If VM
+traffic inherits the host VPN through NAT, "direct" here means bypassing the
+guest tunnel, not necessarily bypassing the host tunnel to the ISP.
 
 1. From the repository root, run
    `deploy/windows/Test-PositiveSplitTunnel.ps1 -Action Prepare`.
