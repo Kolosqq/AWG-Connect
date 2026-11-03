@@ -1,5 +1,8 @@
 #include "connectionController.h"
 
+#include <algorithm>
+
+#include <QJsonArray>
 #include <QJsonDocument>
 
 #include "core/configurators/configuratorBase.h"
@@ -215,6 +218,25 @@ ErrorCode ConnectionController::openConnection(const QString &serverId)
     if (errorCode != ErrorCode::NoError) {
         return errorCode;
     }
+
+#ifdef Q_OS_WIN
+    if (m_appSettingsRepository->isAppsSplitTunnelingEnabled()
+        && m_appSettingsRepository->appsRouteMode() == AppsRouteMode::VpnOnlyForwardApps) {
+        const QString protocolName = vpnConfiguration.value(configKey::protocol).toString();
+        const auto allowedIps =
+                vpnConfiguration.value(protocolName + "_config_data").toObject().value(configKey::allowedIps).toArray();
+        const bool fullTunnel = allowedIps.isEmpty()
+                || (allowedIps.contains("0.0.0.0/0")
+                    && std::all_of(allowedIps.begin(), allowedIps.end(), [](const QJsonValue &value) {
+                           return value == QJsonValue("0.0.0.0/0") || value == QJsonValue("::/0");
+                       }));
+        if ((!ContainerUtils::isAwgContainer(container) && container != DockerContainer::WireGuard)
+            || m_appSettingsRepository->isSitesSplitTunnelingEnabled() || m_appSettingsRepository->isKillSwitchEnabled()
+            || m_appSettingsRepository->isStrictKillSwitchEnabled() || !fullTunnel) {
+            return ErrorCode::PositiveSplitTunnelConfigurationError;
+        }
+    }
+#endif
 
     const auto apiV2 = m_serversRepository->apiV2Config(serverId);
     if (apiV2.has_value() && !apiV2->sendPayload.isEmpty()) {
