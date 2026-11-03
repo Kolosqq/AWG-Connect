@@ -13,6 +13,30 @@
 - Local baseline build stopped before compilation: CMake, MSVC and Qt are not
   installed in the detected locations or available on PATH.
 
+## Final build for the current milestone
+
+- Application source: `74b03a81`, version `5.1.0.5`.
+- Clean Windows configuration, client, service, six regression suites and installer
+  passed: https://github.com/Kolosqq/AWG-Connect/actions/runs/41708148194.
+- All six suites also passed locally: 110 Qt Test results including setup/cleanup,
+  zero failures and skips. Route, DNS and adapter-state fingerprints were unchanged;
+  test IPC was isolated from the installed service.
+- The client executable now has PE subsystem `2` (Windows GUI), verified in the
+  downloaded build; the previous build had subsystem `3` (Console). File logging
+  remains available. The full client was not launched on the host.
+- Incompatible positive-mode settings now return through the existing UI error
+  handler and leave Preparing. Regression cases cover repeated attempts for
+  Premium, Free, external Premium, self-hosted admin/user and native configurations,
+  with both AmneziaWG and WireGuard; valid positive and exclusion modes are covered.
+- Kill Switch compatibility has not been implemented; both options must remain
+  off in positive mode. The user's two-browser VM test exercised `5313c060`;
+  the subsequent changes affect validation/error reporting and GUI packaging.
+- Installer: `AmneziaVPN-positive-split-final-74b03a81.exe`.
+- Installer SHA-256:
+  `9f519ea18a8e543a259d15be23a03592e6ee37f2a35097af4caf396e713c5f6a`.
+- The bundled driver retains the pinned hash and valid signature listed below.
+  The fork installer itself is unsigned.
+
 ## Existing implementation
 
 - `client/ui/qml/Pages2/PageSettingsAppSplitTunneling.qml`: existing two-mode
@@ -113,8 +137,9 @@ IPv6, explicit socket bindings, existing sockets and reconnects remains unverifi
   `d5a9ad45736bb70fd0cb1c4477cbcd8a2b9ed7423eb223fe83b530869f2c6112`.
 - The fork installer is unsigned. Its bundled split-tunnel driver has the same
   pinned hash listed above and a valid Authenticode signature.
-- The installer and service have not been run on the user's host. Privileged rollback, disconnect failure behavior and broader reconnect
-  scenarios still need live testing; the initial two-browser test is recorded above.
+- The installer and service have not been run on the user's host. Privileged
+  rollback, disconnect failure behavior and broader reconnect scenarios still
+  need live testing; the initial two-browser VM test is recorded above.
 
 ## Public gateway build parameters
 
@@ -126,9 +151,9 @@ pinned by SHA-256 in `deploy/windows/prepare-public-gateway.py`; mismatches stop
 the build. No subscription credentials or VPN keys are used.
 
 `WindowsBuildReadinessTest` checks the compiled production public-key fingerprint
-and initializes the gateway library without sending requests. Authenticated
-Premium connections still require a user-controlled runtime check. The separate
-report of a native `.conf` import failure is deferred at the user's request.
+and initializes the gateway library without sending requests. The user later
+confirmed Premium connection and native `.conf` import in the VM; no separate
+import fix was needed.
 
 The client, service, all six regression suites and installer built successfully
 from `5313c060` in
