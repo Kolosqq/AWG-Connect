@@ -57,6 +57,7 @@ For local regression binaries, set `QT_QPA_PLATFORM=offscreen` and
 the installed service, including its logging controls. The IPC override is
 compiled only into test binaries. Set `AMNEZIA_TEST_QML_DIR` to the checkout's
 `client/ui/qml` directory when running the portable QML regression test.
+Set `QT_PLUGIN_PATH` to the portable runtime's `plugins` directory.
 
 ## Candidate implementation
 
@@ -87,6 +88,30 @@ It rejects site split tunneling, Kill Switch and Strict Kill Switch instead of
 silently changing them. It is not a per-application kill switch. Disconnection
 removes application redirection. Runtime behavior on multiple physical adapters,
 IPv6, explicit socket bindings, existing sockets and reconnects remains unverified.
+
+## Verified build and local regressions
+
+- Application source commit: `25ee6fd7`.
+- Windows client, service, all five regression suites, and IFW installer passed:
+  https://github.com/Kolosqq/AWG-Connect/actions/runs/41594000184.
+- All five suites also passed on the user's Windows host with the existing VPN
+  active: 35 Qt Test results, including setup/cleanup cases, zero failures and
+  zero skips. These are configuration, IPC and model/UI tests, not driver traffic
+  integration tests.
+- The changed page loaded in the QML engine and its mode selector was exercised.
+  The test harness does not bundle application image resources; missing icon and
+  offscreen platform warnings mean this was not a full visual review.
+- Route, DNS and adapter-state fingerprints matched before and after local tests.
+- The downloaded portable test artifact initially lacked `qoffscreen.dll`. For
+  local execution it was added from the official Qt 6.10.1 package after checking
+  the archive checksum and matching its Qt6Core DLL hash against the CI runtime.
+  The workflow now includes that plugin in future portable test artifacts.
+- Installer SHA-256:
+  `d5a9ad45736bb70fd0cb1c4477cbcd8a2b9ed7423eb223fe83b530869f2c6112`.
+- The fork installer is unsigned. Its bundled split-tunnel driver has the same
+  pinned hash listed above and a valid Authenticode signature.
+- The installer and service have not been run on the user's host. Positive
+  routing, privileged rollback and reconnect behavior still need live testing.
 
 ## Manual traffic check
 
