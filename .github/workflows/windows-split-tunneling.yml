@@ -3,7 +3,7 @@ name: Windows split tunneling
 on:
   push:
     branches: [feature/awg-split-tunneling]
-    paths-ignore: ['docs/**', '**/*.md']
+    paths-ignore: ['docs/**', '**/*.md', 'deploy/windows/test-folder-wfp.cpp', '.github/workflows/windows-wfp-policy.yml']
   workflow_dispatch:
 
 permissions:

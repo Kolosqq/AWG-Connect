@@ -71,6 +71,10 @@ int main(int argc, char **argv)
     DWORD status = FwpmEngineOpen0(nullptr, RPC_C_AUTHN_WINNT, nullptr, &session, &engine);
     bool passed = false;
     if (status == ERROR_SUCCESS) {
+        FWP_VALUE0 collectEvents { };
+        collectEvents.type = FWP_UINT32;
+        collectEvents.uint32 = 1;
+        FwpmEngineSetOption0(engine, FWPM_ENGINE_COLLECT_NET_EVENTS, &collectEvents);
         GUID key;
         UuidCreate(&key);
         FWPM_SUBLAYER0 sublayer { };
@@ -136,6 +140,24 @@ int main(int argc, char **argv)
                 const DWORD addressStatus = FwpmFilterAdd0(engine, &filter, nullptr, nullptr);
                 std::cout << "addressStatus=" << addressStatus << " addressBlocked="
                           << (addressStatus == ERROR_SUCCESS && runProbe(selected, port) == 2) << '\n';
+                HANDLE enumeration = nullptr;
+                if (FwpmNetEventCreateEnumHandle0(engine, nullptr, &enumeration) == ERROR_SUCCESS) {
+                    FWPM_NET_EVENT0 **events = nullptr;
+                    UINT32 count = 0;
+                    Sleep(1000);
+                    if (FwpmNetEventEnum0(engine, enumeration, 1000, &events, &count) == ERROR_SUCCESS) {
+                        std::wcout << L"expectedApp=" << reinterpret_cast<wchar_t *>(appId->data) << '\n';
+                        for (UINT32 i = 0; i < count; ++i) {
+                            const auto &header = events[i]->header;
+                            if (header.ipVersion == FWP_IP_VERSION_V4 && header.remoteAddrV4 == 0x01010101
+                                && (header.flags & FWPM_NET_EVENT_FLAG_APP_ID_SET)) {
+                                std::wcout << L"observedApp=" << reinterpret_cast<wchar_t *>(header.appId.data) << '\n';
+                            }
+                        }
+                        FwpmFreeMemory0(reinterpret_cast<void **>(&events));
+                    }
+                    FwpmNetEventDestroyEnumHandle0(engine, enumeration);
+                }
             }
             FwpmFreeMemory0(reinterpret_cast<void **>(&appId));
         }
