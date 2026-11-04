@@ -13,6 +13,7 @@ public:
     explicit AppSplitTunnelingController(SecureAppSettingsRepository* appSettingsRepository);
 
     bool addApp(const amnezia::InstalledAppInfo &appInfo);
+    bool addFolder(const QString &path);
     void removeApp(int index);
     void clearAppsList();
     void setRouteMode(AppsRouteMode routeMode);

@@ -37,6 +37,7 @@ set(HEADERS
 
 set(SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/../../client/core/utils/utilities.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../client/core/utils/appSelection.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../common/crypto/cryptoUtils.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../client/secureQSettings.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../client/core/utils/networkUtilities.cpp

@@ -1,5 +1,8 @@
 #include "appSplitTunnelingController.h"
 
+#include <QDir>
+#include <QFileInfo>
+
 AppSplitTunnelingController::AppSplitTunnelingController(SecureAppSettingsRepository* appSettingsRepository)
     : m_appSettingsRepository(appSettingsRepository)
 {
@@ -23,6 +26,16 @@ bool AppSplitTunnelingController::addApp(const amnezia::InstalledAppInfo &appInf
     m_appSettingsRepository->setVpnApps(m_currentRouteMode, m_apps);
 
     return true;
+}
+
+bool AppSplitTunnelingController::addFolder(const QString &path)
+{
+    const QFileInfo folder(path);
+    if (!folder.isDir()) {
+        return false;
+    }
+    const QString normalized = QDir::fromNativeSeparators(folder.canonicalFilePath()) + '/';
+    return addApp({ folder.fileName(), { }, normalized });
 }
 
 void AppSplitTunnelingController::removeApp(int index)

@@ -3,6 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 #include "localsocketcontroller.h"
 
+#include <algorithm>
+
 #include <stdint.h>
 
 #include <QCoreApplication>
@@ -127,7 +129,11 @@ void LocalSocketController::daemonConnected() {
 
 void LocalSocketController::activate(const QJsonObject &rawConfig) {
 #ifdef Q_OS_WIN
-    if (rawConfig.value(amnezia::configKey::appSplitTunnelType).toInt() == amnezia::AppsRouteMode::VpnOnlyForwardApps) {
+    const auto selectedApps = rawConfig.value(amnezia::configKey::splitTunnelApps).toArray();
+    const bool hasFolder = std::any_of(selectedApps.begin(), selectedApps.end(),
+                                       [](const QJsonValue &app) { return app.toString().endsWith('/'); });
+    if (hasFolder
+        || rawConfig.value(amnezia::configKey::appSplitTunnelType).toInt() == amnezia::AppsRouteMode::VpnOnlyForwardApps) {
         if (m_daemonState != eReady) {
             m_pendingPositiveActivation = rawConfig;
             return;
@@ -393,7 +399,8 @@ void LocalSocketController::parseCommand(const QByteArray& command) {
   logger.debug() << "Parse command:" << type;
 
   if (type == "status") {
-      m_positiveSplitTunnelSupported = obj.value("positiveSplitTunnelSupported").toBool();
+      m_positiveSplitTunnelSupported =
+              obj.value("positiveSplitTunnelSupported").toBool() && obj.value("appSelectionVersion").toInt() >= 2;
   }
 
   if (m_daemonState == eInitializing && type == "status") {

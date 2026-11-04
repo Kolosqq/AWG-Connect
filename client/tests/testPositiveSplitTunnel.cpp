@@ -1,11 +1,15 @@
+#include <QDir>
+#include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLocalServer>
 #include <QSignalSpy>
+#include <QTemporaryDir>
 #include <QTest>
 #include <QUuid>
 
+#include "core/utils/appSelection.h"
 #include "core/utils/routeModes.h"
 #include "daemon/daemon.h"
 #include "daemon/interfaceconfig.h"
@@ -52,11 +56,56 @@ private:
     }
 
 private slots:
+    void resolvesFoldersRecursivelyAndRefreshes()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QDir root(directory.path());
+        QVERIFY(root.mkpath("selected/nested"));
+        QVERIFY(root.mkpath("sibling"));
+        const QString first = root.filePath("selected/first.exe");
+        const QString nested = root.filePath("selected/nested/second.EXE");
+        for (const auto &path :
+             { first, nested, root.filePath("selected/readme.txt"), root.filePath("sibling/other.exe") }) {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        const QString folder = root.filePath("selected/");
+        auto result = appSelection::resolve({ folder, nested });
+        QVERIFY(result.error.isEmpty());
+        QCOMPARE(result.executables, (QStringList { first, nested }));
+        QCOMPARE(result.directories.size(), 1);
+        const QString added = root.filePath("selected/new.exe");
+        QFile file(added);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.close();
+        result = appSelection::resolve({ folder });
+        QVERIFY(result.error.isEmpty());
+        QVERIFY(result.executables.contains(added));
+        QVERIFY(QFile::remove(first));
+        result = appSelection::resolve({ folder });
+        QVERIFY(result.error.isEmpty());
+        QVERIFY(!result.executables.contains(first));
+        result = appSelection::resolve({ nested, root.filePath("missing/") });
+        QVERIFY(!result.error.isEmpty());
+        QVERIFY(result.executables.isEmpty());
+        QVERIFY(root.mkdir("empty"));
+        result = appSelection::resolve({ root.filePath("empty/") });
+        QVERIFY(result.error.isEmpty());
+        QVERIFY(result.executables.isEmpty());
+        QCOMPARE(result.directories.size(), 1);
+    }
+
     void negotiatesServiceSupport_data()
     {
-        QTest::addColumn<bool>("supported");
-        QTest::newRow("original-service") << false;
-        QTest::newRow("matching-service") << true;
+        QTest::addColumn<int>("version");
+        QTest::addColumn<bool>("folder");
+        QTest::newRow("original-service") << 0 << false;
+        QTest::newRow("release-1.0-service") << 1 << false;
+        QTest::newRow("matching-service") << 2 << false;
+        QTest::newRow("folder-original-service") << 0 << true;
+        QTest::newRow("folder-release-1.0-service") << 1 << true;
+        QTest::newRow("folder-matching-service") << 2 << true;
     }
 
     void negotiatesServiceSupport()
@@ -64,7 +113,9 @@ private slots:
 #ifndef Q_OS_WIN
         QSKIP("Windows-only mode");
 #else
-        QFETCH(bool, supported);
+        QFETCH(int, version);
+        QFETCH(bool, folder);
+        const bool supported = version >= 2;
         QLocalServer server;
         const auto name = "amnezia-positive-test-" + QUuid::createUuid().toString(QUuid::Id128);
         QVERIFY(server.listen(name));
@@ -79,12 +130,14 @@ private slots:
 
         QJsonObject raw;
         raw.insert("appSplitTunnelType", int(amnezia::AppsRouteMode::VpnOnlyForwardApps));
-        raw.insert("splitTunnelApps", QJsonArray { "example.exe" });
+        const QJsonArray apps { folder ? "example/" : "example.exe" };
+        raw.insert("splitTunnelApps", apps);
         controller.activate(raw);
         QVERIFY(!controller.m_pendingPositiveActivation.isEmpty());
         QJsonObject status { { "type", "status" }, { "connected", false } };
-        if (supported) {
+        if (version > 0) {
             status.insert("positiveSplitTunnelSupported", true);
+            status.insert("appSelectionVersion", version);
         }
         peer->write(QJsonDocument(status).toJson(QJsonDocument::Compact) + '\n');
         peer->flush();
@@ -93,7 +146,7 @@ private slots:
             const auto activation = QJsonDocument::fromJson(peer->readLine()).object();
             QCOMPARE(activation.value("type").toString(), QString("activate"));
             QVERIFY(activation.value("positiveSplitTunnel").toBool());
-            QCOMPARE(activation.value("vpnDisabledApps").toArray(), QJsonArray { "example.exe" });
+            QCOMPARE(activation.value("vpnDisabledApps").toArray(), apps);
             QCOMPARE(failed.count(), 0);
         } else {
             QTRY_COMPARE(failed.count(), 1);

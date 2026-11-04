@@ -24,6 +24,7 @@ class WindowsDaemon final : public Daemon {
   ~WindowsDaemon();
 
   bool activate(const InterfaceConfig &config) override;
+  bool deactivate(bool emitSignals = true) override;
 
   void prepareActivation(const InterfaceConfig& config, int inetAdapterIndex = 0) override;
   void activateSplitTunnel(const InterfaceConfig& config, int vpnAdapterIndex = 0) override;
@@ -35,14 +36,17 @@ class WindowsDaemon final : public Daemon {
 
  private:
   void monitorBackendFailure();
+  void refreshAppSelection();
 
- private:
+  private:
   enum State {
     Active,
     Inactive,
   };
 
   int m_inetAdapterIndex = -1;
+  QStringList m_appSelection;
+  QTimer m_appSelectionTimer;
 
   std::unique_ptr<WireguardUtilsWindows> m_wgutils;
   DnsUtilsWindows* m_dnsutils = nullptr;

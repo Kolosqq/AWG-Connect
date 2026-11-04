@@ -2,6 +2,7 @@
 #define APPSPLITTUNNELINGUICONTROLLER_H
 
 #include <QObject>
+#include <QUrl>
 #include <QVector>
 
 #include "core/controllers/appSplitTunnelingController.h"
@@ -24,6 +25,7 @@ public:
 
 public slots:
     void addApp(const QString &appPath);
+    void addFolder(const QUrl &folder);
     void addApps(QVector<QPair<QString, QString>> apps);
     void removeApp(const int index);
     void toggleSplitTunneling(bool enabled);

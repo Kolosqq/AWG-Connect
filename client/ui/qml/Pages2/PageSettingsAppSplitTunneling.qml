@@ -223,11 +223,7 @@ PageType {
                 PageController.showBusyIndicator(true)
 
                 if (Qt.platform.os === "windows") {
-                    var fileName = SystemController.getFileName(qsTr("Open executable file"),
-                                                                qsTr("Executable files (*.*)"))
-                    if (fileName !== "") {
-                        AppSplitTunnelingController.addApp(fileName)
-                    }
+                    appSelectionDrawer.open()
                 } else if (Qt.platform.os === "android"){
                     installedAppDrawer.open()
                 }
@@ -239,5 +235,10 @@ PageType {
 
     InstalledAppsDrawer {
         id: installedAppDrawer
+    }
+
+    AppSelectionDrawer {
+        id: appSelectionDrawer
+        onRunningAppsRequested: installedAppDrawer.open()
     }
 }

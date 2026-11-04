@@ -12,6 +12,7 @@ import Style 1.0
 
 SheetType {
     id: root
+    objectName: "installedAppsDrawer"
 
     expandedHeight: windowHeight * 0.9
 
@@ -84,7 +85,7 @@ SheetType {
 
                         spacing: 20
 
-                        text: appName
+                        text: Qt.platform.os === "windows" ? appName + "\n" + packageName : appName
                         checked: isAppSelected
                         onToggled: {
                             installedAppsModel.selectedStateChanged(proxyInstalledAppsModel.mapToSource(index), checked)
@@ -92,13 +93,14 @@ SheetType {
                     }
 
                     Item {
+                        visible: Qt.platform.os === "android"
                         Layout.preferredWidth: 48
                         Layout.preferredHeight: 48
 
                         Image {
                             anchors.centerIn: parent
 
-                            source: "image://installedAppImage/" + appIcon
+                            source: Qt.platform.os === "android" ? "image://installedAppImage/" + appIcon : ""
 
                             sourceSize.width: 24
                             sourceSize.height: 24

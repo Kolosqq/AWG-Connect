@@ -6,7 +6,9 @@
 #include <QProcessEnvironment>
 #include <QQmlComponent>
 #include <QQmlContext>
+#include <QQuickItem>
 #include <QQuickStyle>
+#include <QQuickWindow>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
@@ -50,11 +52,27 @@ private slots:
         QVERIFY2(component.isReady(), qPrintable(component.errorString()));
         QScopedPointer<QObject> page(component.create());
         QVERIFY2(page, qPrintable(component.errorString()));
+        QQuickWindow window;
+        window.resize(380, 680);
+        auto pageItem = qobject_cast<QQuickItem *>(page.data());
+        QVERIFY(pageItem);
+        pageItem->setParentItem(window.contentItem());
+        window.show();
         QVERIFY(page->property("pageEnabled").toBool());
         auto selector = page->findChild<QObject *>("appRouteModeSelector");
         QVERIFY(selector);
 #ifdef Q_OS_WIN
         QVERIFY(selector->property("enabled").toBool());
+        auto choices = page->findChild<QObject *>("appSelectionDrawer");
+        auto processes = page->findChild<QObject *>("installedAppsDrawer");
+        QVERIFY(choices);
+        QVERIFY(processes);
+        QVERIFY(QMetaObject::invokeMethod(choices, "open"));
+        QTRY_VERIFY(choices->property("opened").toBool());
+        QVERIFY(QMetaObject::invokeMethod(choices, "close"));
+        QVERIFY(QMetaObject::invokeMethod(choices, "runningAppsRequested"));
+        QTRY_VERIFY(processes->property("opened").toBool());
+        QVERIFY(QMetaObject::invokeMethod(processes, "close"));
 #endif
         QVERIFY(QMetaObject::invokeMethod(selector, "activated", Q_ARG(int, 0)));
         QCOMPARE(controller.m_appSplitTunnelingUiController->getRouteMode(), int(AppsRouteMode::VpnOnlyForwardApps));
@@ -63,6 +81,7 @@ private slots:
         QCOMPARE(page->property("routeModeIndex").toInt(), 1);
         page->setProperty("pageEnabled", false);
         QVERIFY(!selector->property("enabled").toBool());
+        page.reset();
     }
 
     void testSeparateApplicationLists()
@@ -80,6 +99,50 @@ private slots:
         controller->removeApp(0);
         QCOMPARE(controller->getRouteMode(), int(AppsRouteMode::VpnOnlyForwardApps));
         QCOMPARE(model->rowCount(), 0);
+    }
+
+    void testFolderAndRunningProcessSelection()
+    {
+#ifdef Q_OS_WIN
+        auto controller = m_coreController->m_appSplitTunnelingUiController;
+        auto model = m_coreController->m_appSplitTunnelingModel;
+        controller->setRouteMode(AppsRouteMode::VpnOnlyForwardApps);
+        QTemporaryDir folder;
+        QVERIFY(folder.isValid());
+        controller->addFolder(QUrl::fromLocalFile(folder.path()));
+        controller->updateModel();
+        QCOMPARE(model->rowCount(), 1);
+        const QString stored = model->data(model->index(0, 0), AppSplitTunnelingModel::AppPathRole).toString();
+        QVERIFY(stored.endsWith('/'));
+        QCOMPARE(QFileInfo(stored).canonicalFilePath(), QFileInfo(folder.path()).canonicalFilePath());
+        controller->addFolder(QUrl::fromLocalFile(folder.path()));
+        controller->updateModel();
+        QCOMPARE(model->rowCount(), 1);
+        controller->removeApp(0);
+        InstalledAppsModel processes;
+        processes.updateModel();
+        int current = -1;
+        QSet<QString> paths;
+        for (int row = 0; row < processes.rowCount(); ++row) {
+            const QString path = processes.data(processes.index(row, 0), InstalledAppsModel::PackageNameRole).toString();
+            QVERIFY(!paths.contains(path.toCaseFolded()));
+            paths.insert(path.toCaseFolded());
+            if (path.compare(QCoreApplication::applicationFilePath(), Qt::CaseInsensitive) == 0) {
+                current = row;
+            }
+        }
+        QVERIFY(current >= 0);
+        processes.selectedStateChanged(current, true);
+        controller->addApps(processes.getSelectedAppsInfo());
+        controller->updateModel();
+        QCOMPARE(model->rowCount(), 1);
+        QCOMPARE(model->data(model->index(0, 0), AppSplitTunnelingModel::AppPathRole).toString(),
+                 QCoreApplication::applicationFilePath());
+        processes.selectedStateChanged(current, true);
+        processes.updateModel();
+        QVERIFY(processes.getSelectedAppsInfo().isEmpty());
+        controller->removeApp(0);
+#endif
     }
 
     void initTestCase()

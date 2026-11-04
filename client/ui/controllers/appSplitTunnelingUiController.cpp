@@ -31,10 +31,23 @@ void AppSplitTunnelingUiController::addApp(const QString &appPath)
     }
 }
 
+void AppSplitTunnelingUiController::addFolder(const QUrl &folder)
+{
+    if (m_appSplitTunnelingController->addFolder(folder.toLocalFile())) {
+        emit finished(tr("Folder added"));
+    } else {
+        emit errorOccurred(tr("The folder is unavailable or has already been added"));
+    }
+}
+
 void AppSplitTunnelingUiController::addApps(QVector<QPair<QString, QString>> apps)
 {
     for (const auto &app : apps) {
+#ifdef Q_OS_WIN
+        amnezia::InstalledAppInfo appInfo { app.first, "", app.second };
+#else
         amnezia::InstalledAppInfo appInfo { app.first, app.second, "" };
+#endif
         m_appSplitTunnelingController->addApp(appInfo);
     }
     emit finished(tr("The selected applications have been added"));

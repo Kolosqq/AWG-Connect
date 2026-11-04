@@ -1,8 +1,18 @@
 #include "installedAppsModel.h"
 
+#include <QDir>
 #include <QEventLoop>
+#include <QFileInfo>
 #include <QFutureWatcher>
+#include <QJsonObject>
 #include <QtConcurrent>
+
+#ifdef Q_OS_WIN
+// clang-format off
+    #include <windows.h>
+    #include <tlhelp32.h>
+// clang-format on
+#endif
 
 #ifdef Q_OS_ANDROID
     #include "platforms/android/android_controller.h"
@@ -74,6 +84,38 @@ QVector<QPair<QString, QString>> InstalledAppsModel::getSelectedAppsInfo()
 
 void InstalledAppsModel::updateModel()
 {
+#ifdef Q_OS_WIN
+    QJsonArray apps;
+    QSet<QString> seen;
+    const HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (snapshot != INVALID_HANDLE_VALUE) {
+        PROCESSENTRY32W entry { };
+        entry.dwSize = sizeof(entry);
+        if (Process32FirstW(snapshot, &entry)) {
+            do {
+                const HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, entry.th32ProcessID);
+                if (!process) {
+                    continue;
+                }
+                wchar_t buffer[32768];
+                DWORD length = 32768;
+                if (QueryFullProcessImageNameW(process, 0, buffer, &length)) {
+                    const QString path = QDir::fromNativeSeparators(QString::fromWCharArray(buffer, length));
+                    if (!seen.contains(path.toCaseFolded())) {
+                        seen.insert(path.toCaseFolded());
+                        apps.append(QJsonObject { { "name", QFileInfo(path).fileName() }, { "package", path } });
+                    }
+                }
+                CloseHandle(process);
+            } while (Process32NextW(snapshot, &entry));
+        }
+        CloseHandle(snapshot);
+    }
+    beginResetModel();
+    m_selectedAppIndexes.clear();
+    m_installedApps = apps;
+    endResetModel();
+#endif
 #ifdef Q_OS_ANDROID
     QFuture<QJsonArray> future = QtConcurrent::run([]() {
         return AndroidController::instance()->getAppList();

@@ -167,6 +167,7 @@ set(SOURCES ${SOURCES}
     ${CLIENT_ROOT_DIR}/core/utils/serverConfigUtils.cpp
     ${CLIENT_ROOT_DIR}/core/utils/osSignalHandler.cpp
     ${CLIENT_ROOT_DIR}/core/utils/utilities.cpp
+    ${CLIENT_ROOT_DIR}/core/utils/appSelection.cpp
     ${CLIENT_ROOT_DIR}/core/utils/managementServer.cpp
 )
 

@@ -24,6 +24,7 @@
 #include "platforms/windows/daemon/windowssplittunnel.h"
 #include "windowsfirewall.h"
 
+#include "core/utils/appSelection.h"
 #include "core/utils/networkUtilities.h"
 
 namespace {
@@ -38,6 +39,8 @@ WindowsDaemon::WindowsDaemon() : Daemon(nullptr) {
   m_wgutils = WireguardUtilsWindows::create(m_firewallManager, this);
   m_dnsutils = new DnsUtilsWindows(this);
   m_splitTunnelManager = WindowsSplitTunnel::create(m_firewallManager);
+  m_appSelectionTimer.setInterval(2000);
+  connect(&m_appSelectionTimer, &QTimer::timeout, this, &WindowsDaemon::refreshAppSelection);
 
   connect(m_wgutils.get(), &WireguardUtilsWindows::backendFailure, this,
           &WindowsDaemon::monitorBackendFailure);
@@ -52,7 +55,16 @@ WindowsDaemon::~WindowsDaemon() {
 
 bool WindowsDaemon::activate(const InterfaceConfig &config)
 {
-    const bool activated = Daemon::activate(config);
+    m_appSelectionTimer.stop();
+    const auto selection = appSelection::resolve(config.m_vpnDisabledApps);
+    if (!selection.error.isEmpty()) {
+        emit activationFailure();
+        emit backendFailure(DaemonError::ERROR_SPLIT_TUNNEL_EXCLUDE_FAILURE);
+        return false;
+    }
+    InterfaceConfig resolved = config;
+    resolved.m_vpnDisabledApps = selection.executables;
+    const bool activated = Daemon::activate(resolved);
     if (!activated && config.m_positiveSplitTunnel) {
         if (m_splitTunnelManager) {
             m_splitTunnelManager->stop();
@@ -61,7 +73,43 @@ bool WindowsDaemon::activate(const InterfaceConfig &config)
             logger.error() << "Failed to clean up positive split tunneling activation";
         }
     }
+    if (activated) {
+        m_appSelection = config.m_vpnDisabledApps;
+        if (!selection.directories.isEmpty()) {
+            m_appSelectionTimer.start();
+        }
+    }
     return activated;
+}
+
+bool WindowsDaemon::deactivate(bool emitSignals)
+{
+    m_appSelectionTimer.stop();
+    return Daemon::deactivate(emitSignals);
+}
+
+void WindowsDaemon::refreshAppSelection()
+{
+    if (m_connections.isEmpty()) {
+        return;
+    }
+    const auto selection = appSelection::resolve(m_appSelection);
+    auto &config = m_connections.begin().value().m_config;
+    if (selection.error.isEmpty() && selection.executables == config.m_vpnDisabledApps) {
+        return;
+    }
+    if (!selection.error.isEmpty() || !m_splitTunnelManager) {
+        monitorBackendFailure();
+        return;
+    }
+    if (selection.executables.isEmpty()) {
+        m_splitTunnelManager->stop();
+    } else if (!m_splitTunnelManager->start(m_inetAdapterIndex, 0, config.m_positiveSplitTunnel)
+               || !m_splitTunnelManager->excludeApps(selection.executables, true) || !m_splitTunnelManager->isRunning()) {
+        monitorBackendFailure();
+        return;
+    }
+    config.m_vpnDisabledApps = selection.executables;
 }
 
 void WindowsDaemon::prepareActivation(const InterfaceConfig& config, int inetAdapterIndex) {
