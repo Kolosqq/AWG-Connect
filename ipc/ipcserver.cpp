@@ -305,6 +305,16 @@ bool IpcServer::refreshKillSwitch(bool enabled)
     return KillSwitch::instance()->refresh(enabled);
 }
 
+bool IpcServer::configureAppPolicy(const QJsonObject &policy)
+{
+#ifdef Q_OS_WIN
+    return KillSwitch::instance()->configureAppPolicy(policy);
+#else
+    Q_UNUSED(policy)
+    return false;
+#endif
+}
+
 bool IpcServer::xrayStart(const QString& cfg)
 {
 #ifdef MZ_DEBUG

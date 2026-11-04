@@ -17,6 +17,7 @@
 #include "winsock.h"
 
 #include <QApplication>
+#include <QDir>
 #include <QFileInfo>
 #include <QHostAddress>
 #include <QNetworkInterface>
@@ -398,6 +399,24 @@ bool WindowsFirewall::disablePeerTraffic(const QString& pubkey) {
 
 bool WindowsFirewall::disableKillSwitch() {
   return KillSwitch::instance()->disableKillSwitch();
+}
+
+bool WindowsFirewall::protectSelectedApps(const QStringList &paths, int vpnAdapterIndex)
+{
+    NET_LUID luid { };
+    if (vpnAdapterIndex > 0 && ConvertInterfaceIndexToLuid(vpnAdapterIndex, &luid) != NO_ERROR) {
+        return false;
+    }
+    std::vector<appFirewall::Selection> selection;
+    for (const QString &path : paths) {
+        selection.push_back({ QDir::toNativeSeparators(path).toStdWString(), path.endsWith('/') });
+    }
+    const DWORD status = appFirewall::replace(m_sessionHandle, ST_FW_WINFW_BASELINE_SUBLAYER_KEY, selection, luid.Value,
+                                              m_selectedAppRules);
+    if (status != ERROR_SUCCESS) {
+        logger.error() << "Failed to update selected application protection:" << status;
+    }
+    return status == ERROR_SUCCESS;
 }
 
 bool WindowsFirewall::allowAllTraffic() {

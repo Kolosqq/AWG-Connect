@@ -119,7 +119,11 @@ void DaemonLocalServerConnection::parseCommand(const QByteArray& data) {
   }
 
   if (type == "deactivate") {
-    Daemon::instance()->deactivate(true);
+      if (obj.value("manual").toBool()) {
+          Daemon::instance()->deactivateManually();
+      } else {
+          Daemon::instance()->deactivate(true);
+      }
     return;
   }
 

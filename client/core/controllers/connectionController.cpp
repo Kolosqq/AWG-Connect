@@ -231,8 +231,7 @@ ErrorCode ConnectionController::openConnection(const QString &serverId)
                            return value == QJsonValue("0.0.0.0/0") || value == QJsonValue("::/0");
                        }));
         if ((!ContainerUtils::isAwgContainer(container) && container != DockerContainer::WireGuard)
-            || m_appSettingsRepository->isSitesSplitTunnelingEnabled() || m_appSettingsRepository->isKillSwitchEnabled()
-            || m_appSettingsRepository->isStrictKillSwitchEnabled() || !fullTunnel) {
+            || m_appSettingsRepository->isSitesSplitTunnelingEnabled() || !fullTunnel) {
             return ErrorCode::PositiveSplitTunnelConfigurationError;
         }
     }

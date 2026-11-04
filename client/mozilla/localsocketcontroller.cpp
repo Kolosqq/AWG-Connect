@@ -286,20 +286,24 @@ void LocalSocketController::activate(const QJsonObject &rawConfig) {
   write(json);
 }
 
-void LocalSocketController::deactivate() {
-  logger.debug() << "Deactivating";
-  m_pendingPositiveActivation = { };
+void LocalSocketController::deactivate()
+{
+    sendDeactivation(false);
+}
 
-  if (m_daemonState != eReady) {
-    logger.debug() << "No disconnect, controller is not ready";
+void LocalSocketController::deactivateManually()
+{
+    sendDeactivation(true);
+}
+
+void LocalSocketController::sendDeactivation(bool manual)
+{
+    logger.debug() << "Deactivating";
+    m_pendingPositiveActivation = { };
+    if (m_daemonState == eReady) {
+        write(QJsonObject { { "type", "deactivate" }, { "manual", manual } });
+    }
     emit disconnected();
-    return;
-  }
-
-  QJsonObject json;
-  json.insert("type", "deactivate");
-  write(json);
-  emit disconnected();
 }
 
 void LocalSocketController::checkStatus() {
@@ -400,7 +404,7 @@ void LocalSocketController::parseCommand(const QByteArray& command) {
 
   if (type == "status") {
       m_positiveSplitTunnelSupported =
-              obj.value("positiveSplitTunnelSupported").toBool() && obj.value("appSelectionVersion").toInt() >= 2;
+              obj.value("positiveSplitTunnelSupported").toBool() && obj.value("appSelectionVersion").toInt() >= 3;
   }
 
   if (m_daemonState == eInitializing && type == "status") {

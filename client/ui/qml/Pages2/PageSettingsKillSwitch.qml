@@ -12,6 +12,9 @@ import "../Config"
 
 PageType {
     id: root
+    readonly property bool positiveAppMode: Qt.platform.os === "windows"
+                                            && AppSplitTunnelingController.isSplitTunnelingEnabled
+                                            && AppSplitTunnelingController.routeMode === 1
 
     FlickableType {
         id: flickable
@@ -78,7 +81,9 @@ PageType {
                 BodyTextType {
                     Layout.fillWidth: true
 
-                    text: qsTr("Enable to ensure network traffic goes through a secure VPN tunnel, preventing accidental exposure of your IP and DNS queries if the connection drops")
+                    text: root.positiveAppMode
+                          ? qsTr("Kill Switch protects only the selected VPN applications. Other applications and system DNS continue directly.")
+                          : qsTr("Enable to ensure network traffic goes through a secure VPN tunnel, preventing accidental exposure of your IP and DNS queries if the connection drops")
                     color: AmneziaStyle.color.textSecondary
                 }
             }
@@ -106,7 +111,9 @@ PageType {
                         checked: !SettingsController.strictKillSwitchEnabled
 
                         text: qsTr("Soft KillSwitch")
-                        subtitle: qsTr("Internet access is blocked if the VPN disconnects unexpectedly")
+                        subtitle: root.positiveAppMode
+                                  ? qsTr("Selected applications are blocked after an unexpected disconnect and released after manual disconnect")
+                                  : qsTr("Internet access is blocked if the VPN disconnects unexpectedly")
 
                         onClicked: function() {
                             SettingsController.strictKillSwitchEnabled = false
@@ -115,19 +122,24 @@ PageType {
 
                     RadioItemType {
                         id: strictKillSwitch
+                        objectName: "strictKillSwitchChoice"
 
                         Layout.fillWidth: true
 
-                        visible: false
-                        enabled: false
+                        visible: root.positiveAppMode
+                        enabled: root.positiveAppMode && SettingsController.isKillSwitchEnabled && !ConnectionController.isConnected
                         checked: SettingsController.strictKillSwitchEnabled
 
                         text: qsTr("Strict KillSwitch")
-                        subtitle: qsTr("Internet connection is blocked even when VPN is turned off manually or hasn't started")
+                        subtitle: root.positiveAppMode
+                                  ? qsTr("Selected applications stay blocked while VPN is off, including after manual disconnect")
+                                  : qsTr("Internet connection is blocked even when VPN is turned off manually or hasn't started")
 
                         onClicked: function() {
                             var headerText = qsTr("Just a little heads-up")
-                            var descriptionText = qsTr("If the VPN disconnects or drops while Strict KillSwitch is enabled, internet access will be blocked. To restore access, reconnect VPN or disable/change the KillSwitch.")
+                            var descriptionText = root.positiveAppMode
+                                    ? qsTr("Selected applications will have no direct access while VPN is off. Reconnect VPN or disable Kill Switch to restore their access. Other applications stay direct.")
+                                    : qsTr("If the VPN disconnects or drops while Strict KillSwitch is enabled, internet access will be blocked. To restore access, reconnect VPN or disable/change the KillSwitch.")
                             var yesButtonText = qsTr("Continue")
                             var noButtonText = qsTr("Cancel")
 
@@ -144,6 +156,7 @@ PageType {
 
                 ListItemType {
                     id: dnsExceptionsButton
+                    visible: !root.positiveAppMode
 
                     Layout.fillWidth: true
 

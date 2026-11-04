@@ -15,6 +15,6 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@v1
       - name: Build isolated policy probe
         shell: cmd
-        run: cl /nologo /std:c++20 /EHsc /MT /DUNICODE /D_UNICODE deploy\windows\test-folder-wfp.cpp /Fe:wfp-probe.exe /link fwpuclnt.lib ws2_32.lib rpcrt4.lib
+        run: cl /nologo /std:c++20 /EHsc /MT /DUNICODE /D_UNICODE deploy\windows\test-folder-wfp.cpp client\platforms\windows\daemon\appfirewall.cpp /Fe:wfp-probe.exe /link fwpuclnt.lib ws2_32.lib rpcrt4.lib iphlpapi.lib
       - name: Verify folder filtering on isolated outbound probes
         run: ./wfp-probe.exe

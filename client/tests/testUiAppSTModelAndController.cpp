@@ -82,6 +82,22 @@ private slots:
         page->setProperty("pageEnabled", false);
         QVERIFY(!selector->property("enabled").toBool());
         page.reset();
+#ifdef Q_OS_WIN
+        controller.m_appSplitTunnelingUiController->toggleSplitTunneling(true);
+        controller.m_appSplitTunnelingUiController->setRouteMode(AppsRouteMode::VpnOnlyForwardApps);
+        QQmlComponent killSwitchComponent(&engine,
+                                          QUrl::fromLocalFile(qmlDirectory + "/Pages2/PageSettingsKillSwitch.qml"));
+        QTRY_VERIFY_WITH_TIMEOUT(killSwitchComponent.status() != QQmlComponent::Loading, 10000);
+        QVERIFY2(killSwitchComponent.isReady(), qPrintable(killSwitchComponent.errorString()));
+        QScopedPointer<QObject> killSwitchPage(killSwitchComponent.create());
+        QVERIFY2(killSwitchPage, qPrintable(killSwitchComponent.errorString()));
+        auto strictChoice = killSwitchPage->findChild<QObject *>("strictKillSwitchChoice");
+        QVERIFY(strictChoice);
+        QVERIFY(strictChoice->property("visible").toBool());
+        QVERIFY(strictChoice->property("enabled").toBool());
+        controller.m_appSplitTunnelingUiController->setRouteMode(AppsRouteMode::VpnAllExceptApps);
+        QVERIFY(!strictChoice->property("visible").toBool());
+#endif
     }
 
     void testSeparateApplicationLists()
@@ -112,7 +128,8 @@ private slots:
         controller->addFolder(QUrl::fromLocalFile(folder.path()));
         controller->updateModel();
         QCOMPARE(model->rowCount(), 1);
-        const QString stored = model->data(model->index(0, 0), AppSplitTunnelingModel::AppPathRole).toString();
+        const QString stored =
+                m_coreController->m_appSettingsRepository->vpnApps(AppsRouteMode::VpnOnlyForwardApps).first().appPath;
         QVERIFY(stored.endsWith('/'));
         QCOMPARE(QFileInfo(stored).canonicalFilePath(), QFileInfo(folder.path()).canonicalFilePath());
         controller->addFolder(QUrl::fromLocalFile(folder.path()));
@@ -136,7 +153,7 @@ private slots:
         controller->addApps(processes.getSelectedAppsInfo());
         controller->updateModel();
         QCOMPARE(model->rowCount(), 1);
-        QCOMPARE(model->data(model->index(0, 0), AppSplitTunnelingModel::AppPathRole).toString(),
+        QCOMPARE(m_coreController->m_appSettingsRepository->vpnApps(AppsRouteMode::VpnOnlyForwardApps).first().appPath,
                  QCoreApplication::applicationFilePath());
         processes.selectedStateChanged(current, true);
         processes.updateModel();
@@ -165,6 +182,7 @@ private slots:
     void init()
     {
         m_settings->clearSettings();
+        m_coreController->m_appSplitTunnelingUiController->setRouteMode(AppsRouteMode::VpnOnlyForwardApps);
         if (m_coreController->m_serversModel) {
             m_coreController->m_serversModel->updateModel(QVector<ServerDescription>(), QString{});
         }

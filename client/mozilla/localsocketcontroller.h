@@ -29,6 +29,7 @@ class LocalSocketController final : public ControllerImpl {
   void activate(const QJsonObject& rawConfig) override;
 
   void deactivate() override;
+  void deactivateManually() override;
 
   void checkStatus() override;
 
@@ -48,8 +49,9 @@ class LocalSocketController final : public ControllerImpl {
   void parseCommand(const QByteArray& command);
 
   void write(const QJsonObject& json);
+  void sendDeactivation(bool manual);
 
- private:
+  private:
   enum {
     eUnknown,
     eInitializing,

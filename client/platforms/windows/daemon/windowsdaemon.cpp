@@ -18,6 +18,7 @@
 
 #include "daemon/daemonerrors.h"
 #include "dnsutilswindows.h"
+#include "killswitch.h"
 #include "leakdetector.h"
 #include "logger.h"
 #include "platforms/windows/daemon/windowsfirewall.h"
@@ -64,6 +65,14 @@ bool WindowsDaemon::activate(const InterfaceConfig &config)
     }
     InterfaceConfig resolved = config;
     resolved.m_vpnDisabledApps = selection.executables;
+    if (config.m_positiveSplitTunnel) {
+        if ((!m_connections.isEmpty() && !deactivate(false))
+            || !KillSwitch::instance()->beginPositiveConnection(config.m_vpnDisabledApps, config.m_killSwitchEnabled)) {
+            emit activationFailure();
+            emit backendFailure(DaemonError::ERROR_SPLIT_TUNNEL_EXCLUDE_FAILURE);
+            return false;
+        }
+    }
     const bool activated = Daemon::activate(resolved);
     if (!activated && config.m_positiveSplitTunnel) {
         if (m_splitTunnelManager) {
@@ -85,7 +94,18 @@ bool WindowsDaemon::activate(const InterfaceConfig &config)
 bool WindowsDaemon::deactivate(bool emitSignals)
 {
     m_appSelectionTimer.stop();
+    if (!KillSwitch::instance()->endPositiveConnection(false)) {
+        return false;
+    }
     return Daemon::deactivate(emitSignals);
+}
+
+bool WindowsDaemon::deactivateManually()
+{
+    if (!KillSwitch::instance()->endPositiveConnection(true)) {
+        return false;
+    }
+    return deactivate();
 }
 
 void WindowsDaemon::refreshAppSelection()

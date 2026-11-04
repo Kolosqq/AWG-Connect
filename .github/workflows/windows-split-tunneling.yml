@@ -73,7 +73,7 @@ jobs:
         run: >-
           cmake --build deploy/build --parallel 4 --target
           AmneziaVPN AmneziaVPN-service test_positive_split_tunnel test_windows_build_readiness
-          test_settings_signals test_ui_ip_model_and_controller
+          test_settings_signals test_windows_app_policy test_ui_ip_model_and_controller
           test_ui_app_st_model_and_controller test_ui_allowed_dns_model_and_controller
       - name: Run settings and split tunneling regression tests
         shell: cmd
@@ -81,6 +81,10 @@ jobs:
           ctest --test-dir deploy\build\client\tests -C Release
           -R "^(SettingsSignalsTest|UiIpModelAndControllerTest|UiAppSTModelAndControllerTest|UiAllowedDnsModelAndControllerTest|PositiveSplitTunnelTest|WindowsBuildReadinessTest)$"
           --output-on-failure --no-tests=error --timeout 180
+      - name: Verify app-scoped Kill Switch on isolated runner
+        env:
+          AMNEZIA_RUN_WFP_TESTS: '1'
+        run: ctest --test-dir deploy/build/client/tests -C Release -R '^WindowsAppPolicyTest$' --output-on-failure --no-tests=error --timeout 180
       - name: Stage portable regression tests
         id: portable-tests
         if: always() && steps.build.outcome == 'success'

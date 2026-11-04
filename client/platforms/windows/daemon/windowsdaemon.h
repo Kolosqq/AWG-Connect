@@ -25,6 +25,7 @@ class WindowsDaemon final : public Daemon {
 
   bool activate(const InterfaceConfig &config) override;
   bool deactivate(bool emitSignals = true) override;
+  bool deactivateManually() override;
 
   void prepareActivation(const InterfaceConfig& config, int inetAdapterIndex = 0) override;
   void activateSplitTunnel(const InterfaceConfig& config, int vpnAdapterIndex = 0) override;

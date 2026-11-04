@@ -56,6 +56,31 @@ private:
     }
 
 private slots:
+    void distinguishesManualDisconnect()
+    {
+        QLocalServer server;
+        const auto name = "amnezia-disconnect-test-" + QUuid::createUuid().toString(QUuid::Id128);
+        QVERIFY(server.listen(name));
+        LocalSocketController controller;
+        controller.m_daemonState = LocalSocketController::eInitializing;
+        controller.m_socket->connectToServer(name);
+        QTRY_VERIFY(server.hasPendingConnections());
+        QScopedPointer<QLocalSocket> peer(server.nextPendingConnection());
+        QTRY_VERIFY(peer->canReadLine());
+        peer->readLine();
+        controller.m_daemonState = LocalSocketController::eReady;
+        controller.deactivate();
+        QTRY_VERIFY(peer->canReadLine());
+        const auto automatic = QJsonDocument::fromJson(peer->readLine()).object();
+        QCOMPARE(automatic.value("type").toString(), QString("deactivate"));
+        QVERIFY(!automatic.value("manual").toBool());
+        controller.deactivateManually();
+        QTRY_VERIFY(peer->canReadLine());
+        const auto manual = QJsonDocument::fromJson(peer->readLine()).object();
+        QCOMPARE(manual.value("type").toString(), QString("deactivate"));
+        QVERIFY(manual.value("manual").toBool());
+    }
+
     void resolvesFoldersRecursivelyAndRefreshes()
     {
         QTemporaryDir directory;
@@ -102,10 +127,11 @@ private slots:
         QTest::addColumn<bool>("folder");
         QTest::newRow("original-service") << 0 << false;
         QTest::newRow("release-1.0-service") << 1 << false;
-        QTest::newRow("matching-service") << 2 << false;
+        QTest::newRow("folder-only-beta-service") << 2 << false;
+        QTest::newRow("matching-service") << 3 << false;
         QTest::newRow("folder-original-service") << 0 << true;
         QTest::newRow("folder-release-1.0-service") << 1 << true;
-        QTest::newRow("folder-matching-service") << 2 << true;
+        QTest::newRow("folder-matching-service") << 3 << true;
     }
 
     void negotiatesServiceSupport()
@@ -115,7 +141,7 @@ private slots:
 #else
         QFETCH(int, version);
         QFETCH(bool, folder);
-        const bool supported = version >= 2;
+        const bool supported = version >= 3;
         QLocalServer server;
         const auto name = "amnezia-positive-test-" + QUuid::createUuid().toString(QUuid::Id128);
         QVERIFY(server.listen(name));

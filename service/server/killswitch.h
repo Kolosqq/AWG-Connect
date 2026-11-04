@@ -20,12 +20,25 @@ public:
     bool resetAllowedRange(const QStringList &ranges);
     bool addAllowedRange(const QStringList &ranges);
     bool isStrictKillSwitchEnabled();
+#ifdef Q_OS_WIN
+    bool configureAppPolicy(const QJsonObject &policy);
+    bool beginPositiveConnection(const QStringList &paths, bool softKillSwitch);
+    bool allowPositiveInterface(int interfaceIndex);
+    bool endPositiveConnection(bool manual);
+#endif
 
 private:
     KillSwitch(QObject* parent) {};
     QStringList m_allowedRanges;
     QSharedPointer<SecureQSettings> m_appSettigns;
-
+#ifdef Q_OS_WIN
+    bool m_positiveMode = false;
+    bool m_positiveActive = false;
+    bool m_positiveHold = false;
+    bool m_positiveSoftKillSwitch = false;
+    int m_positiveInterface = 0;
+    QStringList m_selectedApps;
+#endif
 };
 
 #endif // KILLSWITCH_H

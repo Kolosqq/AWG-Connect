@@ -113,7 +113,8 @@ private slots:
             connection->setConnectionState(Vpn::ConnectionState::Preparing);
             QVERIFY(ui->isConnectionInProgress());
             ui->openConnection();
-            if (scenario == "supported" || scenario == "exclusion") {
+            if (scenario == "supported" || scenario == "exclusion" || scenario == "default-kill-switch"
+                || scenario == "strict-kill-switch") {
                 QCOMPARE(errors.count(), 0);
                 QCOMPARE(activation.count(), attempt + 1);
             } else {

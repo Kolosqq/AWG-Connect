@@ -43,6 +43,10 @@ class ControllerImpl : public QObject {
   // This method terminates the VPN tunnel. The VPN client is in
   // "disconnecting" state until the "disconnected" signal is received.
   virtual void deactivate() = 0;
+  virtual void deactivateManually()
+  {
+      deactivate();
+  }
 
   // This method is used to retrieve the VPN tunnel status (mainly the number
   // of bytes sent and received). It's called always when the VPN tunnel is

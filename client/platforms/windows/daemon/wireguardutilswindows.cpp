@@ -99,8 +99,8 @@ bool WireguardUtilsWindows::addInterface(const InterfaceConfig& config) {
             }
             ipv4DefaultRoute |= prefix.type() == QAbstractSocket::IPv4Protocol;
         }
-        if (!ipv4DefaultRoute || config.m_killSwitchEnabled || KillSwitch::instance()->isStrictKillSwitchEnabled()) {
-            logger.error() << "Positive split tunneling requires IPv4 default AllowedIPs and Kill Switch off";
+        if (!ipv4DefaultRoute) {
+            logger.error() << "Positive split tunneling requires IPv4 default AllowedIPs";
             return false;
         }
     }
@@ -144,18 +144,19 @@ bool WireguardUtilsWindows::addInterface(const InterfaceConfig& config) {
 
   if (m_positiveSplitTunnel) {
       NET_IFINDEX ifindex = 0;
-      if (ConvertInterfaceLuidToIndex(&luid, &ifindex) != NO_ERROR || !m_firewall->restrictTunnelToSplitApps(ifindex)) {
+      if (ConvertInterfaceLuidToIndex(&luid, &ifindex) != NO_ERROR || !m_firewall->restrictTunnelToSplitApps(ifindex)
+          || !KillSwitch::instance()->allowPositiveInterface(ifindex)) {
           deleteInterface();
           return false;
       }
   }
 
-  if (config.m_killSwitchEnabled) {
-    // Enable the windows firewall
-    NET_IFINDEX ifindex;
-    ConvertInterfaceLuidToIndex(&luid, &ifindex);
-    m_firewall->allowAllTraffic();
-    m_firewall->enableInterface(ifindex);
+  if (config.m_killSwitchEnabled && !config.m_positiveSplitTunnel) {
+      // Enable the windows firewall
+      NET_IFINDEX ifindex;
+      ConvertInterfaceLuidToIndex(&luid, &ifindex);
+      m_firewall->allowAllTraffic();
+      m_firewall->enableInterface(ifindex);
   }
 
   logger.debug() << "Registration completed";
@@ -179,9 +180,9 @@ bool WireguardUtilsWindows::updatePeer(const InterfaceConfig& config) {
   QByteArray pskKey =
       QByteArray::fromBase64(qPrintable(config.m_serverPskKey));
 
-  if (config.m_killSwitchEnabled) {
-    // Enable the windows firewall for this peer.
-    m_firewall->enablePeerTraffic(config);
+  if (config.m_killSwitchEnabled && !config.m_positiveSplitTunnel) {
+      // Enable the windows firewall for this peer.
+      m_firewall->enablePeerTraffic(config);
   }
   logger.debug() << "Configuring peer" << publicKey.toHex()
                  << "via" << config.m_serverIpv4AddrIn;

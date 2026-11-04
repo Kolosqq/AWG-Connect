@@ -4,6 +4,7 @@
 #include <QEventLoop>
 #include <QFile>
 #include <QHostInfo>
+#include <QJsonArray>
 #include <QJsonObject>
 #include <QObject>
 #include <QSharedPointer>
@@ -61,7 +62,12 @@ void VpnConnection::onBytesChanged(quint64 receivedBytes, quint64 sentBytes)
 
 void VpnConnection::onKillSwitchModeChanged(bool enabled)
 {
-#ifdef AMNEZIA_DESKTOP
+#ifdef Q_OS_WIN
+    Q_UNUSED(enabled)
+    if (!synchronizeAppPolicy()) {
+        emit vpnProtocolError(ErrorCode::PositiveSplitTunnelServiceError);
+    }
+#elif defined(AMNEZIA_DESKTOP)
     IpcClient::withInterface([enabled](QSharedPointer<IpcInterfaceReplica> iface){
         QRemoteObjectPendingReply<bool> reply = iface->refreshKillSwitch(enabled);
         if (reply.waitForFinished() && reply.returnValue())
@@ -69,6 +75,46 @@ void VpnConnection::onKillSwitchModeChanged(bool enabled)
         else
             qWarning() << "VpnConnection::onKillSwitchModeChanged: Failed to execute remote refreshKillSwitch call";
     });
+#endif
+}
+
+bool VpnConnection::synchronizeAppPolicy()
+{
+#ifdef Q_OS_WIN
+    if (!m_appSettingsRepository) {
+        return false;
+    }
+    QJsonArray apps;
+    for (const auto &app : m_appSettingsRepository->vpnApps(AppsRouteMode::VpnOnlyForwardApps)) {
+        apps.append(app.appPath);
+    }
+    const QJsonObject policy {
+        { "positive",
+          m_appSettingsRepository->isAppsSplitTunnelingEnabled()
+                  && m_appSettingsRepository->appsRouteMode() == AppsRouteMode::VpnOnlyForwardApps },
+        { "strict",
+          m_appSettingsRepository->isKillSwitchEnabled() && m_appSettingsRepository->isStrictKillSwitchEnabled() },
+        { "soft", m_appSettingsRepository->isKillSwitchEnabled() },
+        { "apps", apps }
+    };
+    return IpcClient::withInterface(
+            [&policy](QSharedPointer<IpcInterfaceReplica> iface) {
+                auto reply = iface->configureAppPolicy(policy);
+                return reply.waitForFinished() && reply.returnValue();
+            },
+            [] { return false; });
+#else
+    return true;
+#endif
+}
+
+void VpnConnection::refreshStrictAppPolicy()
+{
+#ifdef Q_OS_WIN
+    if (m_appSettingsRepository && m_appSettingsRepository->isKillSwitchEnabled()
+        && m_appSettingsRepository->isStrictKillSwitchEnabled() && !synchronizeAppPolicy()) {
+        emit vpnProtocolError(ErrorCode::PositiveSplitTunnelServiceError);
+    }
 #endif
 }
 
@@ -203,6 +249,14 @@ void VpnConnection::setRepositories(SecureServersRepository* serversRepository, 
 {
     m_serversRepository = serversRepository;
     m_appSettingsRepository = appSettingsRepository;
+#ifdef Q_OS_WIN
+    connect(appSettingsRepository, &SecureAppSettingsRepository::appsChanged, this,
+            &VpnConnection::refreshStrictAppPolicy, Qt::UniqueConnection);
+    connect(appSettingsRepository, &SecureAppSettingsRepository::appsRouteModeChanged, this,
+            &VpnConnection::refreshStrictAppPolicy, Qt::UniqueConnection);
+    connect(appSettingsRepository, &SecureAppSettingsRepository::appsSplitTunnelingEnabledChanged, this,
+            &VpnConnection::refreshStrictAppPolicy, Qt::UniqueConnection);
+#endif
 }
 
 void VpnConnection::addSitesRoutes(const QString &gw, amnezia::RouteMode mode)
@@ -328,6 +382,13 @@ void VpnConnection::connectToVpn(const QString &serverId, DockerContainer contai
         setConnectionState(Vpn::ConnectionState::Error);
         return;
     }
+#ifdef Q_OS_WIN
+    if (!synchronizeAppPolicy()) {
+        setConnectionState(Vpn::ConnectionState::Error);
+        emit vpnProtocolError(ErrorCode::PositiveSplitTunnelServiceError);
+        return;
+    }
+#endif
 
     qDebug() << QString("Trying to connect to VPN, server id is %1, container is %2, route mode is")
                         .arg(serverId)
@@ -606,7 +667,15 @@ void VpnConnection::disconnectFromVpn()
                           });
 #endif
 
+#ifdef Q_OS_WIN
+    if (auto wireguard = qobject_cast<WireguardProtocol *>(m_vpnProtocol.data())) {
+        wireguard->stopManually();
+    } else {
+        m_vpnProtocol->stop();
+    }
+#else
     m_vpnProtocol->stop();
+#endif
 
 #if !defined(Q_OS_ANDROID) && !defined(AMNEZIA_DESKTOP)
     m_vpnProtocol->deleteLater();

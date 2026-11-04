@@ -602,7 +602,7 @@ QJsonObject Daemon::getStatus() {
   QJsonObject json;
 #ifdef Q_OS_WIN
   json.insert("positiveSplitTunnelSupported", true);
-  json.insert("appSelectionVersion", 2);
+  json.insert("appSelectionVersion", 3);
 #endif
   logger.debug() << "Status request";
 

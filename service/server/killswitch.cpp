@@ -1,8 +1,9 @@
 #include "killswitch.h"
 
-
 #include <QApplication>
+#include <QDir>
 #include <QHostAddress>
+#include <QJsonArray>
 #include <QRegularExpression>
 #include <algorithm>
 
@@ -56,6 +57,12 @@ KillSwitch* KillSwitch::instance()
 
 bool KillSwitch::init()
 {
+#ifdef Q_OS_WIN
+    QSettings registry("HKEY_LOCAL_MACHINE\\Software\\" + QString(ORGANIZATION_NAME) + "\\" + QString(APPLICATION_NAME),
+                       QSettings::NativeFormat);
+    m_positiveMode = registry.value("positiveSplitTunnelEnabled", false).toBool();
+    m_selectedApps = registry.value("positiveSplitTunnelApps").toStringList();
+#endif
 #if defined(Q_OS_LINUX) || defined(Q_OS_MACOS)
     m_appSettigns = QSharedPointer<SecureQSettings>(new SecureQSettings(ORGANIZATION_NAME, APPLICATION_NAME, nullptr));
 #endif
@@ -98,6 +105,16 @@ bool KillSwitch::isStrictKillSwitchEnabled()
 }
 
 bool KillSwitch::disableKillSwitch() {
+#ifdef Q_OS_WIN
+    if (m_positiveMode) {
+        auto firewall = WindowsFirewall::create(this);
+        const bool protect = m_positiveActive || m_positiveHold || isStrictKillSwitchEnabled();
+        if (!firewall || !firewall->protectSelectedApps(protect ? m_selectedApps : QStringList { }, m_positiveInterface)) {
+            return false;
+        }
+        return m_positiveActive || firewall->allowAllTraffic();
+    }
+#endif
 #ifdef Q_OS_LINUX
     if (isStrictKillSwitchEnabled()) {
         LinuxFirewall::setAnchorEnabled(LinuxFirewall::Both, QStringLiteral("000.allowLoopback"), true);
@@ -159,6 +176,11 @@ bool KillSwitch::disableKillSwitch() {
 
 bool KillSwitch::disableAllTraffic() {
 #ifdef Q_OS_WIN
+    if (m_positiveMode) {
+        auto firewall = WindowsFirewall::create(this);
+        return firewall && firewall->protectSelectedApps(m_selectedApps, m_positiveInterface)
+                && firewall->allowAllTraffic();
+    }
     WindowsFirewall::create(this)->enableInterface(-1);
 #endif
 #ifdef Q_OS_LINUX
@@ -430,3 +452,87 @@ bool KillSwitch::enableKillSwitch(const QJsonObject &configStr, int vpnAdapterIn
 #endif
     return true;
 }
+
+#ifdef Q_OS_WIN
+bool KillSwitch::configureAppPolicy(const QJsonObject &policy)
+{
+    if (!policy.value("positive").isBool() || !policy.value("strict").isBool() || !policy.value("soft").isBool()
+        || !policy.value("apps").isArray()) {
+        return false;
+    }
+    const bool positive = policy.value("positive").toBool();
+    const bool strict = policy.value("strict").toBool();
+    const bool soft = policy.value("soft").toBool();
+    QStringList paths;
+    for (const auto &value : policy.value("apps").toArray()) {
+        if (!value.isString() || !QDir::isAbsolutePath(value.toString())) {
+            return false;
+        }
+        paths.append(value.toString());
+    }
+    if (m_positiveActive) {
+        return positive == m_positiveMode && paths == m_selectedApps && strict == isStrictKillSwitchEnabled()
+                && soft == m_positiveSoftKillSwitch;
+    }
+    auto firewall = WindowsFirewall::create(this);
+    if (!firewall) {
+        return false;
+    }
+    const bool hold = positive && m_positiveMode && m_positiveHold && soft;
+    if (positive && !firewall->protectSelectedApps(strict || hold ? paths : QStringList { })) {
+        return false;
+    }
+    QSettings registry("HKEY_LOCAL_MACHINE\\Software\\" + QString(ORGANIZATION_NAME) + "\\" + QString(APPLICATION_NAME),
+                       QSettings::NativeFormat);
+    m_positiveMode = positive;
+    m_selectedApps = paths;
+    m_positiveHold = hold;
+    m_positiveSoftKillSwitch = soft;
+    m_positiveInterface = 0;
+    registry.setValue("positiveSplitTunnelEnabled", positive);
+    registry.setValue("positiveSplitTunnelApps", paths);
+    if (!refresh(strict)) {
+        return false;
+    }
+    return positive || firewall->protectSelectedApps({ });
+}
+
+bool KillSwitch::beginPositiveConnection(const QStringList &paths, bool softKillSwitch)
+{
+    auto firewall = WindowsFirewall::create(this);
+    if (!firewall || !firewall->protectSelectedApps(paths)) {
+        return false;
+    }
+    m_positiveMode = true;
+    m_selectedApps = paths;
+    m_positiveActive = true;
+    m_positiveHold = false;
+    m_positiveSoftKillSwitch = softKillSwitch;
+    m_positiveInterface = 0;
+    return firewall->allowAllTraffic();
+}
+
+bool KillSwitch::allowPositiveInterface(int interfaceIndex)
+{
+    auto firewall = WindowsFirewall::create(this);
+    if (!m_positiveActive || interfaceIndex <= 0 || !firewall
+        || !firewall->protectSelectedApps(m_selectedApps, interfaceIndex)) {
+        return false;
+    }
+    m_positiveInterface = interfaceIndex;
+    return true;
+}
+
+bool KillSwitch::endPositiveConnection(bool manual)
+{
+    if (!m_positiveMode) {
+        return true;
+    }
+    if (manual || m_positiveActive) {
+        m_positiveHold = !manual && m_positiveSoftKillSwitch;
+    }
+    m_positiveActive = false;
+    m_positiveInterface = 0;
+    return disableKillSwitch();
+}
+#endif

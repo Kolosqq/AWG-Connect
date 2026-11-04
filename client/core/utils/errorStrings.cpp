@@ -15,13 +15,13 @@ QString errorString(ErrorCode code) {
     case(ErrorCode::NotSupportedOnThisPlatform): errorMessage = QObject::tr("The selected protocol is not supported on the current platform"); break;
     case ErrorCode::PositiveSplitTunnelConfigurationError:
         errorMessage = QObject::tr(
-                "On Windows, Via VPN app mode requires AmneziaWG or WireGuard, IPv4 AllowedIPs 0.0.0.0/0, and both "
-                "site split tunneling and Kill Switch turned off. Settings have not been changed.");
+                "On Windows, Via VPN app mode requires AmneziaWG or WireGuard, IPv4 AllowedIPs 0.0.0.0/0, and "
+                "site split tunneling turned off. Settings have not been changed.");
         break;
 
     case ErrorCode::PositiveSplitTunnelServiceError:
-        errorMessage = QObject::tr("The background service does not support Via VPN app mode. Install the matching "
-                                   "client and service from this fork before connecting.");
+        errorMessage = QObject::tr("The background service could not apply Via VPN app protection. Check the selected "
+                                   "paths and install the matching client and service from this fork.");
         break;
 
     // Server errors

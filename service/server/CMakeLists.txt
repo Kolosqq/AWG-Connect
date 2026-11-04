@@ -123,6 +123,7 @@ endif()
 set(RESOURCES)
 
 if(WIN32)
+    list(APPEND SOURCES ${CMAKE_CURRENT_LIST_DIR}/../../client/platforms/windows/daemon/appfirewall.cpp)
     configure_file(
         ${CMAKE_CURRENT_LIST_DIR}/amneziavpn-service.rc.in
         ${CMAKE_CURRENT_BINARY_DIR}/amneziavpn-service.rc

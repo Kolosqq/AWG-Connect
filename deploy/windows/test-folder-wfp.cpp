@@ -4,12 +4,16 @@
 #include <initguid.h>
 #include <fwpmu.h>
 #include <rpc.h>
+#include <iphlpapi.h>
+#include <netioapi.h>
 // clang-format on
 
 #include <filesystem>
 #include <iostream>
 #include <string>
 #include <vector>
+
+#include "../../client/platforms/windows/daemon/appfirewall.h"
 
 namespace fs = std::filesystem;
 
@@ -62,8 +66,8 @@ int main(int argc, char **argv)
         return 1;
     }
     const fs::path root = fs::path(temporaryDirectory) / (L"awg-wfp-test-" + std::to_wstring(GetCurrentProcessId()));
-    const fs::path selected = root / L"selected" / L"nested" / L"probe.exe";
-    const fs::path direct = root / L"selected-other" / L"probe.exe";
+    const fs::path selected = root / L"SELECTED_\u041F\u0410\u041F\u041A\u0410" / L"nested" / L"probe.exe";
+    const fs::path direct = root / L"SELECTED_\u041F\u0410\u041F\u041A\u0410-other" / L"probe.exe";
     fs::create_directories(selected.parent_path());
     fs::create_directories(direct.parent_path());
     fs::copy_file(executable, selected);
@@ -75,10 +79,6 @@ int main(int argc, char **argv)
     DWORD status = FwpmEngineOpen0(nullptr, RPC_C_AUTHN_WINNT, nullptr, &session, &engine);
     bool passed = false;
     if (status == ERROR_SUCCESS) {
-        FWP_VALUE0 collectEvents { };
-        collectEvents.type = FWP_UINT32;
-        collectEvents.uint32 = 1;
-        FwpmEngineSetOption0(engine, FWPM_ENGINE_COLLECT_NET_EVENTS, &collectEvents);
         GUID key;
         UuidCreate(&key);
         FWPM_SUBLAYER0 sublayer { };
@@ -86,85 +86,42 @@ int main(int argc, char **argv)
         sublayer.displayData.name = const_cast<wchar_t *>(L"AWG isolated folder test");
         sublayer.weight = 65535;
         status = FwpmSubLayerAdd0(engine, &sublayer, nullptr);
-        FWP_BYTE_BLOB *appId = nullptr;
-        if (status == ERROR_SUCCESS) {
-            status = FwpmGetAppIdFromFileName0(selected.c_str(), &appId);
-        }
-        if (status == ERROR_SUCCESS) {
-            std::wstring lower(reinterpret_cast<wchar_t *>(appId->data));
-            lower.resize(lower.size() - std::wstring(L"nested\\probe.exe").size());
-            std::wstring upper = lower;
-            ++upper.back();
-            FWP_BYTE_BLOB lowBlob { static_cast<UINT32>((lower.size() + 1) * sizeof(wchar_t)),
-                                    reinterpret_cast<UINT8 *>(lower.data()) };
-            FWP_BYTE_BLOB highBlob { static_cast<UINT32>((upper.size() + 1) * sizeof(wchar_t)),
-                                     reinterpret_cast<UINT8 *>(upper.data()) };
-            FWP_RANGE0 range { };
-            range.valueLow.type = FWP_BYTE_BLOB_TYPE;
-            range.valueLow.byteBlob = &lowBlob;
-            range.valueHigh.type = FWP_BYTE_BLOB_TYPE;
-            range.valueHigh.byteBlob = &highBlob;
-            FWPM_FILTER_CONDITION0 condition { };
-            condition.fieldKey = FWPM_CONDITION_ALE_APP_ID;
-            condition.matchType = FWP_MATCH_RANGE;
-            condition.conditionValue.type = FWP_RANGE_TYPE;
-            condition.conditionValue.rangeValue = &range;
-            FWPM_FILTER0 filter { };
-            filter.subLayerKey = key;
-            filter.layerKey = FWPM_LAYER_ALE_AUTH_CONNECT_V4;
-            filter.displayData.name = const_cast<wchar_t *>(L"AWG isolated folder block");
-            filter.action.type = FWP_ACTION_BLOCK;
-            filter.weight.type = FWP_UINT8;
-            filter.weight.uint8 = 15;
-            filter.numFilterConditions = 1;
-            filter.filterCondition = &condition;
-            const bool baseline = runProbe(selected, port) == 0 && runProbe(direct, port) == 0;
-            UINT64 rangeFilter = 0;
-            status = FwpmFilterAdd0(engine, &filter, nullptr, &rangeFilter);
-            if (status == ERROR_SUCCESS) {
-                const bool blocked = runProbe(selected, port) == 2;
-                const bool allowed = runProbe(direct, port) == 0;
-                std::cout << "baseline=" << baseline << " folderBlocked=" << blocked << " siblingAllowed=" << allowed
-                          << '\n';
-                FwpmFilterDeleteById0(engine, rangeFilter);
-                condition.matchType = FWP_MATCH_EQUAL;
-                condition.conditionValue.type = FWP_BYTE_BLOB_TYPE;
-                condition.conditionValue.byteBlob = appId;
-                UINT64 exactFilter = 0;
-                const DWORD exactStatus = FwpmFilterAdd0(engine, &filter, nullptr, &exactFilter);
-                const bool exactBlocked = exactStatus == ERROR_SUCCESS && runProbe(selected, port) == 2;
-                const bool exactDirect = runProbe(direct, port) == 0;
-                passed = baseline && exactBlocked && exactDirect;
-                std::cout << "exactStatus=" << exactStatus << " exactBlocked=" << exactBlocked
-                          << " exactSiblingAllowed=" << exactDirect << '\n';
-                FwpmFilterDeleteById0(engine, exactFilter);
-                condition.fieldKey = FWPM_CONDITION_IP_REMOTE_ADDRESS;
-                condition.conditionValue.type = FWP_UINT32;
-                condition.conditionValue.uint32 = 0x01010101;
-                const DWORD addressStatus = FwpmFilterAdd0(engine, &filter, nullptr, nullptr);
-                std::cout << "addressStatus=" << addressStatus << " addressBlocked="
-                          << (addressStatus == ERROR_SUCCESS && runProbe(selected, port) == 2) << '\n';
-                HANDLE enumeration = nullptr;
-                if (FwpmNetEventCreateEnumHandle0(engine, nullptr, &enumeration) == ERROR_SUCCESS) {
-                    FWPM_NET_EVENT0 **events = nullptr;
-                    UINT32 count = 0;
-                    Sleep(1000);
-                    if (FwpmNetEventEnum0(engine, enumeration, 1000, &events, &count) == ERROR_SUCCESS) {
-                        std::wcout << L"expectedApp=" << reinterpret_cast<wchar_t *>(appId->data) << '\n';
-                        for (UINT32 i = 0; i < count; ++i) {
-                            const auto &header = events[i]->header;
-                            if (header.ipVersion == FWP_IP_VERSION_V4 && header.remoteAddrV4 == 0x01010101
-                                && (header.flags & FWPM_NET_EVENT_FLAG_APP_ID_SET)) {
-                                std::wcout << L"observedApp=" << reinterpret_cast<wchar_t *>(header.appId.data) << '\n';
-                            }
-                        }
-                        FwpmFreeMemory0(reinterpret_cast<void **>(&events));
-                    }
-                    FwpmNetEventDestroyEnumHandle0(engine, enumeration);
-                }
-            }
-            FwpmFreeMemory0(reinterpret_cast<void **>(&appId));
-        }
+        std::vector<UINT64> filters;
+        const bool baseline = runProbe(selected, port) == 0 && runProbe(direct, port) == 0;
+        const auto folder = selected.parent_path().parent_path();
+        status = appFirewall::replace(engine, key, { { folder.wstring(), true } }, 0, filters);
+        const bool folderBlocked = status == ERROR_SUCCESS && runProbe(selected, port) == 2;
+        const bool siblingAllowed = runProbe(direct, port) == 0;
+        const auto added = folder / L"added.exe";
+        fs::copy_file(executable, added);
+        const bool newFileBlocked = runProbe(added, port) == 2;
+        status = appFirewall::replace(engine, key, { { selected.wstring(), false } }, 0, filters);
+        const bool exactBlocked = status == ERROR_SUCCESS && runProbe(selected, port) == 2;
+        const bool otherFileAllowed = runProbe(added, port) == 0;
+        const DWORD rejected = appFirewall::replace(engine, key, { { L"relative.exe", false } }, 0, filters);
+        const bool rollbackProtected = rejected != ERROR_SUCCESS && runProbe(selected, port) == 2;
+        fs::remove(added);
+        status = appFirewall::replace(engine, key, { { added.wstring(), false } }, 0, filters);
+        fs::copy_file(executable, added);
+        const bool recreatedFileBlocked = status == ERROR_SUCCESS && runProbe(added, port) == 2;
+        DWORD index = 0;
+        NET_LUID luid { };
+        const bool interfaceFound = GetBestInterface(0x01010101, &index) == NO_ERROR
+                && ConvertInterfaceIndexToLuid(index, &luid) == NO_ERROR;
+        status = appFirewall::replace(engine, key, { { folder.wstring(), true } }, luid.Value, filters);
+        const bool interfaceAllowed = interfaceFound && status == ERROR_SUCCESS && runProbe(selected, port) == 0;
+        status = appFirewall::replace(engine, key, { { folder.wstring(), true } }, ~luid.Value, filters);
+        const bool wrongInterfaceBlocked = status == ERROR_SUCCESS && runProbe(selected, port) == 2;
+        status = appFirewall::replace(engine, key, { }, 0, filters);
+        const bool released = status == ERROR_SUCCESS && filters.empty() && runProbe(selected, port) == 0;
+        passed = baseline && folderBlocked && siblingAllowed && newFileBlocked && exactBlocked && otherFileAllowed
+                && rollbackProtected && recreatedFileBlocked && interfaceAllowed && wrongInterfaceBlocked && released;
+        std::cout << "baseline=" << baseline << " folderBlocked=" << folderBlocked << " siblingAllowed=" << siblingAllowed
+                  << " newFileBlocked=" << newFileBlocked << " exactBlocked=" << exactBlocked
+                  << " otherFileAllowed=" << otherFileAllowed << " rollbackProtected=" << rollbackProtected
+                  << " recreatedFileBlocked=" << recreatedFileBlocked << " interfaceAllowed=" << interfaceAllowed
+                  << " wrongInterfaceBlocked=" << wrongInterfaceBlocked << " released=" << released << '\n';
+        fs::remove(added);
         FwpmEngineClose0(engine);
     }
     fs::remove(selected);

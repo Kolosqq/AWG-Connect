@@ -19,6 +19,7 @@
 #include <QString>
 
 #include "../client/daemon/interfaceconfig.h"
+#include "appfirewall.h"
 
 class IpAdressRange;
 struct FWP_VALUE0_;
@@ -46,6 +47,7 @@ class WindowsFirewall final : public QObject {
   bool allowAllTraffic();
   bool allowTrafficRange(const QStringList& ranges);
   bool restrictTunnelToSplitApps(int vpnAdapterIndex);
+  bool protectSelectedApps(const QStringList &paths, int vpnAdapterIndex = 0);
 
   private:
   static bool initSublayer();
@@ -54,6 +56,7 @@ class WindowsFirewall final : public QObject {
   bool m_init = false;
   QList<uint64_t> m_activeRules;
   QMultiMap<QString, uint64_t> m_peerRules;
+  std::vector<UINT64> m_selectedAppRules;
 
   bool allowTrafficForAppOnAll(const QString& exePath, int weight,
                                const QString& title);

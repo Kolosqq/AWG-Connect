@@ -60,6 +60,13 @@ void WireguardProtocol::stop()
     stopMzImpl();
 }
 
+void WireguardProtocol::stopManually()
+{
+    if (!guardStop()) {
+        m_impl->deactivateManually();
+    }
+}
+
 ErrorCode WireguardProtocol::startMzImpl()
 {
     QString protocolName = m_rawConfig.value("protocol").toString();

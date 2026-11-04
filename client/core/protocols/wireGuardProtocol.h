@@ -21,6 +21,7 @@ public:
 
     ErrorCode start() override;
     void stop() override;
+    void stopManually();
 
     ErrorCode startMzImpl();
     ErrorCode stopMzImpl();

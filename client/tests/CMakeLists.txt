@@ -64,6 +64,16 @@ target_include_directories(test_common PUBLIC
 
 if(NOT ANDROID)
     if(WIN32)
+        add_executable(test_windows_app_policy
+            testWindowsAppPolicy.cpp
+            ../../service/server/killswitch.cpp
+            ../platforms/windows/daemon/windowsfirewall.cpp
+            ../platforms/windows/daemon/appfirewall.cpp
+            ../platforms/windows/windowsutils.cpp
+        )
+        target_include_directories(test_windows_app_policy PRIVATE ../../service/server)
+        target_link_libraries(test_windows_app_policy PRIVATE Qt6::Test test_common fwpuclnt iphlpapi)
+        add_test(NAME WindowsAppPolicyTest COMMAND test_windows_app_policy)
         add_executable(test_windows_build_readiness testWindowsBuildReadiness.cpp)
         target_link_libraries(test_windows_build_readiness PRIVATE Qt6::Test test_common)
         add_test(NAME WindowsBuildReadinessTest COMMAND test_windows_build_readiness)

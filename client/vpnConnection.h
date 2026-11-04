@@ -54,6 +54,7 @@ public slots:
     void disconnectFromVpn();
 
     void onKillSwitchModeChanged(bool enabled);
+    void refreshStrictAppPolicy();
     void disconnectSlots();
 
     void setConnectionState(Vpn::ConnectionState state);
@@ -73,6 +74,7 @@ protected:
     QSharedPointer<VpnProtocol> m_vpnProtocol;
 
 private:
+    bool synchronizeAppPolicy();
     SecureServersRepository* m_serversRepository;
     SecureAppSettingsRepository* m_appSettingsRepository;
 

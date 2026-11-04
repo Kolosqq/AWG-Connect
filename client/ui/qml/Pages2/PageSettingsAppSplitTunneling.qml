@@ -151,7 +151,7 @@ PageType {
                 Layout.rightMargin: 16
                 Layout.bottomMargin: 24
 
-                text: qsTr("Via VPN mode supports AmneziaWG and WireGuard with site split tunneling and Kill Switch turned off. System DNS stays direct. An empty list sends all apps directly.")
+                text: qsTr("Via VPN mode supports AmneziaWG and WireGuard with site split tunneling turned off. Kill Switch protects selected apps only; strict mode also blocks them after manual disconnect. System DNS stays direct. An empty list sends all apps directly.")
 
                 visible: (Qt.platform.os === "windows") && root.pageEnabled && root.routeModeIndex === 0
             }
