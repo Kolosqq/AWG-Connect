@@ -1,7 +1,10 @@
+// clang-format off
+#include <winsock2.h>
+#include <windows.h>
+#include <initguid.h>
 #include <fwpmu.h>
 #include <rpc.h>
-#include <windows.h>
-#include <winsock2.h>
+// clang-format on
 
 #include <filesystem>
 #include <iostream>
