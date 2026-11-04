@@ -119,13 +119,23 @@ int main(int argc, char **argv)
             filter.numFilterConditions = 1;
             filter.filterCondition = &condition;
             const bool baseline = runProbe(selected, port) == 0 && runProbe(direct, port) == 0;
-            status = FwpmFilterAdd0(engine, &filter, nullptr, nullptr);
+            UINT64 rangeFilter = 0;
+            status = FwpmFilterAdd0(engine, &filter, nullptr, &rangeFilter);
             if (status == ERROR_SUCCESS) {
                 const bool blocked = runProbe(selected, port) == 2;
                 const bool allowed = runProbe(direct, port) == 0;
-                passed = baseline && blocked && allowed;
                 std::cout << "baseline=" << baseline << " folderBlocked=" << blocked << " siblingAllowed=" << allowed
                           << '\n';
+                FwpmFilterDeleteById0(engine, rangeFilter);
+                condition.matchType = FWP_MATCH_EQUAL;
+                condition.conditionValue.type = FWP_BYTE_BLOB_TYPE;
+                condition.conditionValue.byteBlob = appId;
+                const DWORD exactStatus = FwpmFilterAdd0(engine, &filter, nullptr, nullptr);
+                const bool exactBlocked = exactStatus == ERROR_SUCCESS && runProbe(selected, port) == 2;
+                const bool exactDirect = runProbe(direct, port) == 0;
+                passed = baseline && exactBlocked && exactDirect;
+                std::cout << "exactStatus=" << exactStatus << " exactBlocked=" << exactBlocked
+                          << " exactSiblingAllowed=" << exactDirect << '\n';
             }
             FwpmFreeMemory0(reinterpret_cast<void **>(&appId));
         }
