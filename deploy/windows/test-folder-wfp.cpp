@@ -122,12 +122,20 @@ int main(int argc, char **argv)
                 condition.matchType = FWP_MATCH_EQUAL;
                 condition.conditionValue.type = FWP_BYTE_BLOB_TYPE;
                 condition.conditionValue.byteBlob = appId;
-                const DWORD exactStatus = FwpmFilterAdd0(engine, &filter, nullptr, nullptr);
+                UINT64 exactFilter = 0;
+                const DWORD exactStatus = FwpmFilterAdd0(engine, &filter, nullptr, &exactFilter);
                 const bool exactBlocked = exactStatus == ERROR_SUCCESS && runProbe(selected, port) == 2;
                 const bool exactDirect = runProbe(direct, port) == 0;
                 passed = baseline && exactBlocked && exactDirect;
                 std::cout << "exactStatus=" << exactStatus << " exactBlocked=" << exactBlocked
                           << " exactSiblingAllowed=" << exactDirect << '\n';
+                FwpmFilterDeleteById0(engine, exactFilter);
+                condition.fieldKey = FWPM_CONDITION_IP_REMOTE_ADDRESS;
+                condition.conditionValue.type = FWP_UINT32;
+                condition.conditionValue.uint32 = 0x01010101;
+                const DWORD addressStatus = FwpmFilterAdd0(engine, &filter, nullptr, nullptr);
+                std::cout << "addressStatus=" << addressStatus << " addressBlocked="
+                          << (addressStatus == ERROR_SUCCESS && runProbe(selected, port) == 2) << '\n';
             }
             FwpmFreeMemory0(reinterpret_cast<void **>(&appId));
         }
