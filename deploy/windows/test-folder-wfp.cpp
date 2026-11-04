@@ -19,7 +19,7 @@ int probe(unsigned short port)
     sockaddr_in target { };
     target.sin_family = AF_INET;
     target.sin_port = htons(port);
-    target.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    target.sin_addr.s_addr = htonl(0x01010101);
     const int result = connect(client, reinterpret_cast<sockaddr *>(&target), sizeof(target));
     closesocket(client);
     return result == 0 ? 0 : 2;
@@ -64,15 +64,7 @@ int main(int argc, char **argv)
     fs::create_directories(direct.parent_path());
     fs::copy_file(executable, selected);
     fs::copy_file(executable, direct);
-    const SOCKET listener = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    sockaddr_in address { };
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    bind(listener, reinterpret_cast<sockaddr *>(&address), sizeof(address));
-    listen(listener, SOMAXCONN);
-    int addressSize = sizeof(address);
-    getsockname(listener, reinterpret_cast<sockaddr *>(&address), &addressSize);
-    const auto port = ntohs(address.sin_port);
+    const unsigned short port = 443;
     HANDLE engine = nullptr;
     FWPM_SESSION0 session { };
     session.flags = FWPM_SESSION_FLAG_DYNAMIC;
@@ -141,7 +133,6 @@ int main(int argc, char **argv)
         }
         FwpmEngineClose0(engine);
     }
-    closesocket(listener);
     fs::remove(selected);
     fs::remove(direct);
     fs::remove(selected.parent_path());
