@@ -57,7 +57,11 @@ int main(int argc, char **argv)
     }
     wchar_t executable[32768];
     GetModuleFileNameW(nullptr, executable, 32768);
-    const fs::path root = fs::temp_directory_path() / (L"awg-wfp-test-" + std::to_wstring(GetCurrentProcessId()));
+    wchar_t temporaryDirectory[32768];
+    if (!GetLongPathNameW(fs::temp_directory_path().c_str(), temporaryDirectory, 32768)) {
+        return 1;
+    }
+    const fs::path root = fs::path(temporaryDirectory) / (L"awg-wfp-test-" + std::to_wstring(GetCurrentProcessId()));
     const fs::path selected = root / L"selected" / L"nested" / L"probe.exe";
     const fs::path direct = root / L"selected-other" / L"probe.exe";
     fs::create_directories(selected.parent_path());
