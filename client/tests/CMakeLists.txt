@@ -66,6 +66,8 @@ if(NOT ANDROID)
     if(WIN32)
         add_executable(test_windows_app_policy
             testWindowsAppPolicy.cpp
+            ../daemon/daemon.cpp
+            ../daemon/interfaceconfig.cpp
             ../../service/server/killswitch.cpp
             ../platforms/windows/daemon/windowsfirewall.cpp
             ../platforms/windows/daemon/appfirewall.cpp
