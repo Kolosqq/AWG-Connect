@@ -6,6 +6,8 @@ AWG Connect is a Windows-focused fork of AmneziaVPN (C++ and Qt Quick) with app 
 - `client/daemon/` and `ipc/` carry desktop tunnel config and capabilities. `client/platforms/windows/daemon/` owns Windows routing and WFP integration, and `service/server/` owns Kill Switch policy.
 - `client/tests/` holds Qt Test suites. `deploy/`, `recipes/` and `.github/workflows/` define builds, dependencies and CI.
 
+Use `awg-update` for integrating the latest stable official AmneziaVPN release. Use `awg-development` for other AWG Connect work, including tests, builds and releases.
+
 ## Build and verify
 
 Use the Windows recipe in `.github/workflows/windows-split-tunneling.yml` (MSVC 2022 x64, Qt 6.10.1, Ninja, Conan, Qt Installer Framework). Match its gateway preparation, configure flags and test environment. For other platforms, start with `bash deploy/build.sh -h`.
@@ -18,4 +20,4 @@ From the root, after configuring with `AMNEZIA_BUILD_TESTS=ON`, build affected t
 - Preserve existing saved settings, exclude mode and ordinary VPN connections. In Windows inclusion mode, selected apps use the tunnel and unselected apps and system DNS stay direct. Preserve app-scoped Kill Switch behavior through failures and reconnects, client/service compatibility checks, and firewall/route cleanup. Verify shared config paths for self-hosted, Premium/Free and native configs on affected consumers.
 - Follow Figma screens and use the existing QML design-system controls, icons and semantic colors. Move reusable pieces to `Components/` and use `QtQuick.Effects`. Use `qsTr()`/`tr()` for UI strings. Refresh translations only for translation tasks and validate all catalogs with `lrelease`.
 - Keep credentials, private endpoints and full configs out of logs, reports and commits.
-- Commit or push only when requested. Use scoped conventional commits and target `dev` for PRs. Creating a GitHub Release, including a draft, or pushing a release tag requires explicit approval for that release.
+- For completed development changes, use scoped conventional commits and push to the current working branch unless the user limits the task. For upstream integration, prepare changes and commit or push when requested. Target `dev` for PRs. Get explicit approval before destructive Git operations, creating a GitHub Release (including a draft), or pushing a release tag.
