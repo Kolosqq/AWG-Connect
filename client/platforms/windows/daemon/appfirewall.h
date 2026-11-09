@@ -3,7 +3,6 @@
 
 // clang-format off
 #include <windows.h>
-#include <fwpmu.h>
 // clang-format on
 
 #include <string>

@@ -15,6 +15,8 @@
 #include <windows.h>
 #include <Ws2tcpip.h>
 #include "winsock.h"
+#include <iphlpapi.h>
+#include <netioapi.h>
 
 #include <QApplication>
 #include <QDir>

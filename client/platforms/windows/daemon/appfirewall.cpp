@@ -1,5 +1,7 @@
 #include "appfirewall.h"
 
+#include <fwpmu.h>
+
 #include <filesystem>
 #include <limits>
 
