@@ -36,7 +36,7 @@ public:
 
     ErrorCode isConnectionSupported(const QString &serverId) const;
 
-    ErrorCode openConnection(const QString &serverId);
+    ErrorCode openConnection(const QString &serverId, bool applySplitTunnelingChanges = false);
 
     void closeConnection();
 

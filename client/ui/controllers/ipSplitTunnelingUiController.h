@@ -18,10 +18,10 @@ public:
                                          IpSplitTunnelingModel* ipSplitTunnelingModel, QObject *parent = nullptr);
 
 public slots:
-    void addSite(QString hostname);
-    void removeSite(int index);
+    bool addSite(QString hostname);
+    bool removeSite(int index);
     void removeSites();
-    void importSites(const QString &fileName, bool replaceExisting);
+    bool importSites(const QString &fileName, bool replaceExisting);
     void exportSites(const QString &fileName);
     void toggleSplitTunneling(bool enabled);
     void setRouteMode(int routeMode);

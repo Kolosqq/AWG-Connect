@@ -41,6 +41,7 @@ public:
     virtual bool disableKillSwitch() override;
     virtual bool refreshKillSwitch( bool enabled ) override;
     bool configureAppPolicy(const QJsonObject &policy) override;
+    bool restartAppPolicy(const QJsonObject &policy) override;
     virtual bool updateResolvers(const QString& ifname, const QList<QHostAddress>& resolvers) override;
     virtual bool restoreResolvers() override;
     virtual bool xrayStart(const QString& cfg) override;

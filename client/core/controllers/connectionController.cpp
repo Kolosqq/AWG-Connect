@@ -209,7 +209,7 @@ ErrorCode ConnectionController::prepareConnection(const QString &serverId,
     return ErrorCode::NoError;
 }
 
-ErrorCode ConnectionController::openConnection(const QString &serverId)
+ErrorCode ConnectionController::openConnection(const QString &serverId, bool applySplitTunnelingChanges)
 {
     QJsonObject vpnConfiguration;
     DockerContainer container;
@@ -242,6 +242,9 @@ ErrorCode ConnectionController::openConnection(const QString &serverId)
         PayloadSender::sendAll(apiV2->sendPayload);
     }
 
+    if (applySplitTunnelingChanges) {
+        vpnConfiguration.insert("applySplitTunnelingChanges", true);
+    }
     emit openConnectionRequested(serverId, container, vpnConfiguration);
     return ErrorCode::NoError;
 }

@@ -20,9 +20,12 @@ import "../Components"
 PageType {
     id: root
 
-    property bool pageEnabled
+    property bool pageEnabled: Qt.platform.os === "windows"
+                               && !ConnectionController.isConnectionInProgress
 
     Component.onCompleted: {
+        if (Qt.platform.os === "windows")
+            return
         if (ConnectionController.isConnected) {
             PageController.showNotificationMessage(qsTr("Cannot change split tunneling settings during active connection"))
             root.pageEnabled = false
@@ -101,7 +104,11 @@ PageType {
 
                     checked: AppSplitTunnelingController.isSplitTunnelingEnabled
 
-                    onToggled: AppSplitTunnelingController.toggleSplitTunneling(checked)
+                    onToggled: {
+                        const requested = checked
+                        checked = Qt.binding(function() { return AppSplitTunnelingController.isSplitTunnelingEnabled })
+                        Dialogs.applySplitTunnelingChange(function() { AppSplitTunnelingController.toggleSplitTunneling(requested) })
+                    }
                 }
             }
 
@@ -121,7 +128,9 @@ PageType {
 
                 onActivated: function(index) {
                     if (AppSplitTunnelingController.routeMode !== root.routeModes[index].type) {
-                        AppSplitTunnelingController.routeMode = root.routeModes[index].type
+                        const requested = root.routeModes[index].type
+                        modeSelector.currentIndex = Qt.binding(function() { return root.routeModeIndex })
+                        Dialogs.applySplitTunnelingChange(function() { AppSplitTunnelingController.routeMode = requested })
                     }
                 }
 
@@ -160,6 +169,7 @@ PageType {
         delegate: Item {
             width: listView.width
             implicitHeight: appItem.implicitHeight
+            enabled: root.pageEnabled
 
             ListItemType {
                 id: appItem
@@ -173,16 +183,10 @@ PageType {
 
                 onClicked: {
                     var headerText = qsTr("Remove ") + appPath + "?"
-                    var yesButtonText = qsTr("Continue")
-                    var noButtonText = qsTr("Cancel")
-
-                    var yesButtonFunction = function() {
-                        AppSplitTunnelingController.removeApp(proxyAppSplitTunnelingModel.mapToSource(index))
-                    }
-                    var noButtonFunction = function() {
-                    }
-
-                    Dialogs.askQuestion(headerText, "", yesButtonText, noButtonText, yesButtonFunction, noButtonFunction)
+                    const sourceIndex = proxyAppSplitTunnelingModel.mapToSource(index)
+                    Dialogs.applySplitTunnelingChange(function() {
+                        return AppSplitTunnelingController.removeApp(sourceIndex)
+                    }, headerText)
                 }
             }
         }

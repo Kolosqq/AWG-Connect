@@ -20,6 +20,7 @@
 #include "xray.h"
 
 #ifdef Q_OS_WIN
+    #include "daemon/daemon.h"
     #include "tapcontroller_win.h"
 #endif
 
@@ -309,6 +310,16 @@ bool IpcServer::configureAppPolicy(const QJsonObject &policy)
 {
 #ifdef Q_OS_WIN
     return KillSwitch::instance()->configureAppPolicy(policy);
+#else
+    Q_UNUSED(policy)
+    return false;
+#endif
+}
+
+bool IpcServer::restartAppPolicy(const QJsonObject &policy)
+{
+#ifdef Q_OS_WIN
+    return Daemon::instance()->deactivate(false) && configureAppPolicy(policy);
 #else
     Q_UNUSED(policy)
     return false;

@@ -34,6 +34,7 @@ public slots:
 
     void openConnection();
     void closeConnection();
+    void applySplitTunnelingChanges();
 
     bool isRevokeBlockedDuringActiveConnection(const QString &serverId, int containerIndex, const QString &clientId) const;
 
@@ -64,6 +65,7 @@ private:
     bool m_isConnectionInProgress = false;
     QString m_connectionStateText = tr("Connect");
 
+    QString m_openedServerId;
     Vpn::ConnectionState m_state;
 };
 

@@ -24,10 +24,10 @@ public:
                                           QObject *parent = nullptr);
 
 public slots:
-    void addApp(const QString &appPath);
-    void addFolder(const QUrl &folder);
-    void addApps(QVector<QPair<QString, QString>> apps);
-    void removeApp(const int index);
+    bool addApp(const QString &appPath);
+    bool addFolder(const QUrl &folder);
+    bool addApps(QVector<QPair<QString, QString>> apps);
+    bool removeApp(const int index);
     void toggleSplitTunneling(bool enabled);
     void setRouteMode(int routeMode);
 

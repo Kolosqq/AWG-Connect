@@ -78,7 +78,7 @@ void VpnConnection::onKillSwitchModeChanged(bool enabled)
 #endif
 }
 
-bool VpnConnection::synchronizeAppPolicy()
+bool VpnConnection::synchronizeAppPolicy(bool restartTunnel)
 {
 #ifdef Q_OS_WIN
     if (!m_appSettingsRepository) {
@@ -98,12 +98,13 @@ bool VpnConnection::synchronizeAppPolicy()
         { "apps", apps }
     };
     return IpcClient::withInterface(
-            [&policy](QSharedPointer<IpcInterfaceReplica> iface) {
-                auto reply = iface->configureAppPolicy(policy);
+            [&policy, restartTunnel](QSharedPointer<IpcInterfaceReplica> iface) {
+                auto reply = restartTunnel ? iface->restartAppPolicy(policy) : iface->configureAppPolicy(policy);
                 return reply.waitForFinished() && reply.returnValue();
             },
             [] { return false; });
 #else
+    Q_UNUSED(restartTunnel)
     return true;
 #endif
 }
@@ -111,8 +112,9 @@ bool VpnConnection::synchronizeAppPolicy()
 void VpnConnection::refreshStrictAppPolicy()
 {
 #ifdef Q_OS_WIN
-    if (m_appSettingsRepository && m_appSettingsRepository->isKillSwitchEnabled()
-        && m_appSettingsRepository->isStrictKillSwitchEnabled() && !synchronizeAppPolicy()) {
+    if (m_connectionState != Vpn::ConnectionState::Connected && m_appSettingsRepository
+        && m_appSettingsRepository->isKillSwitchEnabled() && m_appSettingsRepository->isStrictKillSwitchEnabled()
+        && !synchronizeAppPolicy()) {
         emit vpnProtocolError(ErrorCode::PositiveSplitTunnelServiceError);
     }
 #endif
@@ -383,10 +385,15 @@ void VpnConnection::connectToVpn(const QString &serverId, DockerContainer contai
         return;
     }
 #ifdef Q_OS_WIN
-    if (!synchronizeAppPolicy()) {
+    auto wireguard = qobject_cast<WireguardProtocol *>(m_vpnProtocol.data());
+    const bool restartTunnel = wireguard && vpnConfiguration.value("applySplitTunnelingChanges").toBool();
+    if (!synchronizeAppPolicy(restartTunnel)) {
         setConnectionState(Vpn::ConnectionState::Error);
         emit vpnProtocolError(ErrorCode::PositiveSplitTunnelServiceError);
         return;
+    }
+    if (restartTunnel) {
+        wireguard->markServiceStopped();
     }
 #endif
 

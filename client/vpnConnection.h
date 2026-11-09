@@ -74,7 +74,7 @@ protected:
     QSharedPointer<VpnProtocol> m_vpnProtocol;
 
 private:
-    bool synchronizeAppPolicy();
+    bool synchronizeAppPolicy(bool restartTunnel = false);
     SecureServersRepository* m_serversRepository;
     SecureAppSettingsRepository* m_appSettingsRepository;
 

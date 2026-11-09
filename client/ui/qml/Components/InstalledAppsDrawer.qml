@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 import "../Controls2"
+import "../Config"
 import "../Controls2/TextTypes"
 
 import SortFilterProxyModel 0.2
@@ -145,9 +146,8 @@ SheetType {
             text: qsTr("Add selected")
 
             onClicked: {
-                PageController.showBusyIndicator(true)
-                AppSplitTunnelingController.addApps(installedAppsModel.getSelectedAppsInfo())
-                PageController.showBusyIndicator(false)
+                const apps = installedAppsModel.getSelectedAppsInfo()
+                Dialogs.applySplitTunnelingChange(function() { return AppSplitTunnelingController.addApps(apps) })
                 root.close()
             }
         }

@@ -22,9 +22,13 @@ PageType {
 
     property var isServerFromTelegramApi: ServersUiController.isServerFromApi(ServersUiController.defaultServerId)
     
-    property bool pageEnabled
+    property bool pageEnabled: Qt.platform.os === "windows"
+                               && !ConnectionController.isConnectionInProgress
+                               && !ServersUiController.isDefaultServerDefaultContainerHasSplitTunneling
 
     Component.onCompleted: {
+        if (Qt.platform.os === "windows")
+            return
         if (ConnectionController.isConnected) {
             PageController.showNotificationMessage(qsTr("Cannot change split tunneling settings during active connection"))
             root.pageEnabled = false
@@ -124,7 +128,11 @@ PageType {
 
                     checked: IpSplitTunnelingController.isSplitTunnelingEnabled
 
-                    onToggled: IpSplitTunnelingController.toggleSplitTunneling(checked)
+                    onToggled: {
+                        const requested = checked
+                        checked = Qt.binding(function() { return IpSplitTunnelingController.isSplitTunnelingEnabled })
+                        Dialogs.applySplitTunnelingChange(function() { IpSplitTunnelingController.toggleSplitTunneling(requested) })
+                    }
                 }
             }
 
@@ -143,7 +151,9 @@ PageType {
 
                 onActivated: function(index) {
                     if (IpSplitTunnelingController.routeMode !== root.routeModes[index].type) {
-                        IpSplitTunnelingController.routeMode = root.routeModes[index].type
+                        const requested = root.routeModes[index].type
+                        modeSelector.currentIndex = Qt.binding(function() { return root.routeModeIndex })
+                        Dialogs.applySplitTunnelingChange(function() { IpSplitTunnelingController.routeMode = requested })
                     }
                 }
 
@@ -187,15 +197,10 @@ PageType {
 
                 onClicked: {
                     var headerText = qsTr("Remove ") + url + "?"
-                    var yesButtonText = qsTr("Continue")
-                    var noButtonText = qsTr("Cancel")
-
-                    var yesButtonFunction = function() {
-                        IpSplitTunnelingController.removeSite(proxyIpSplitTunnelingModel.mapToSource(index))
-                    }
-                    var noButtonFunction = function() {}
-
-                    Dialogs.askQuestion(headerText, "", yesButtonText, noButtonText, yesButtonFunction, noButtonFunction)
+                    const sourceIndex = proxyIpSplitTunnelingModel.mapToSource(index)
+                    Dialogs.applySplitTunnelingChange(function() {
+                        return IpSplitTunnelingController.removeSite(sourceIndex)
+                    }, headerText)
                 }
             }
         }
@@ -214,9 +219,7 @@ PageType {
         moreButtonAccessibleName: qsTr("Additional options")
 
         onAddClicked: function(text) {
-            PageController.showBusyIndicator(true)
-            IpSplitTunnelingController.addSite(text)
-            PageController.showBusyIndicator(false)
+            Dialogs.applySplitTunnelingChange(function() { return IpSplitTunnelingController.addSite(text) })
         }
 
         onMoreClicked: {
@@ -286,18 +289,8 @@ PageType {
                 moreActionsMenu.close()
                 var headerText = qsTr("Clear site list?")
                 var descriptionText = qsTr("All sites will be removed from list.")
-                var yesButtonText = qsTr("Continue")
-                var noButtonText = qsTr("Cancel")
-
-                var yesButtonFunction = function() {
-                    PageController.showBusyIndicator(true)
-                    IpSplitTunnelingController.removeSites()
-                    PageController.showBusyIndicator(false)
-                }
-                var noButtonFunction = function() {
-                }
-
-                Dialogs.askQuestion(headerText, descriptionText, yesButtonText, noButtonText, yesButtonFunction, noButtonFunction)
+                Dialogs.applySplitTunnelingChange(function() { IpSplitTunnelingController.removeSites() },
+                                                   headerText, descriptionText)
             }
         }
     }
@@ -311,8 +304,8 @@ PageType {
     }
 
     function importSites(fileName, replaceExistingSites) {
-        PageController.showBusyIndicator(true)
-        IpSplitTunnelingController.importSites(fileName, replaceExistingSites)
-        PageController.showBusyIndicator(false)
+        Dialogs.applySplitTunnelingChange(function() {
+            return IpSplitTunnelingController.importSites(fileName, replaceExistingSites)
+        })
     }
 }

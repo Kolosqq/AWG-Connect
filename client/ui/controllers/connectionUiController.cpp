@@ -39,6 +39,18 @@ void ConnectionUiController::openConnection()
         notifyConnectionBlocked(errorCode);
         return;
     }
+    m_openedServerId = serverId;
+}
+
+void ConnectionUiController::applySplitTunnelingChanges()
+{
+    if (!isConnected() || m_openedServerId.isEmpty()) {
+        return;
+    }
+    const auto error = m_connectionController->openConnection(m_openedServerId, true);
+    if (error != ErrorCode::NoError) {
+        emit connectionErrorOccurred(error);
+    }
 }
 
 void ConnectionUiController::closeConnection()

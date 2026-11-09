@@ -22,6 +22,10 @@ public:
     ErrorCode start() override;
     void stop() override;
     void stopManually();
+    void markServiceStopped()
+    {
+        guardStop();
+    }
 
     ErrorCode startMzImpl();
     ErrorCode stopMzImpl();

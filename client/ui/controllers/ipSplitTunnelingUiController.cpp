@@ -16,20 +16,24 @@ IpSplitTunnelingUiController::IpSplitTunnelingUiController(IpSplitTunnelingContr
     m_ipSplitTunnelingModel->updateModel(m_ipSplitTunnelingController->getCurrentSites());
 }
 
-void IpSplitTunnelingUiController::addSite(QString hostname)
+bool IpSplitTunnelingUiController::addSite(QString hostname)
 {
     if (m_ipSplitTunnelingController->addSite(hostname)) {
         emit finished(tr("New site added: %1").arg(hostname));
+        return true;
     }
+    return false;
 }
 
-void IpSplitTunnelingUiController::removeSite(int index)
+bool IpSplitTunnelingUiController::removeSite(int index)
 {
     auto modelIndex = m_ipSplitTunnelingModel->index(index);
     auto hostname = m_ipSplitTunnelingModel->data(modelIndex, IpSplitTunnelingModel::Roles::UrlRole).toString();
     if (m_ipSplitTunnelingController->removeSite(hostname)) {
         emit finished(tr("Site removed: %1").arg(hostname));
+        return true;
     }
+    return false;
 }
 
 void IpSplitTunnelingUiController::removeSites()
@@ -38,20 +42,22 @@ void IpSplitTunnelingUiController::removeSites()
     emit finished(tr("Site list cleared!"));
 }
 
-void IpSplitTunnelingUiController::importSites(const QString &fileName, bool replaceExisting)
+bool IpSplitTunnelingUiController::importSites(const QString &fileName, bool replaceExisting)
 {
     QByteArray jsonData;
     if (!SystemController::readFile(fileName, jsonData)) {
         emit errorOccurred(tr("Can't open file: %1").arg(fileName));
-        return;
+        return false;
     }
 
     QString errorMessage;
     if (m_ipSplitTunnelingController->importSitesFromJson(jsonData, replaceExisting, errorMessage)) {
         emit finished(tr("Import completed"));
+        return true;
     } else {
         emit errorOccurred(errorMessage);
     }
+    return false;
 }
 
 void IpSplitTunnelingUiController::exportSites(const QString &fileName)

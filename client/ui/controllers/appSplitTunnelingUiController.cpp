@@ -16,7 +16,7 @@ AppSplitTunnelingUiController::AppSplitTunnelingUiController(AppSplitTunnelingCo
     m_appSplitTunnelingModel->updateModel(m_appSplitTunnelingController->getApps());
 }
 
-void AppSplitTunnelingUiController::addApp(const QString &appPath)
+bool AppSplitTunnelingUiController::addApp(const QString &appPath)
 {
     amnezia::InstalledAppInfo appInfo { "", "", appPath };
     if (!appPath.isEmpty()) {
@@ -26,41 +26,54 @@ void AppSplitTunnelingUiController::addApp(const QString &appPath)
 
     if (m_appSplitTunnelingController->addApp(appInfo)) {
         emit finished(tr("Application added: %1").arg(appInfo.appName));
+        return true;
     } else {
         emit errorOccurred(tr("The application has already been added"));
     }
+    return false;
 }
 
-void AppSplitTunnelingUiController::addFolder(const QUrl &folder)
+bool AppSplitTunnelingUiController::addFolder(const QUrl &folder)
 {
     if (m_appSplitTunnelingController->addFolder(folder.toLocalFile())) {
         emit finished(tr("Folder added"));
+        return true;
     } else {
         emit errorOccurred(tr("The folder is unavailable or has already been added"));
     }
+    return false;
 }
 
-void AppSplitTunnelingUiController::addApps(QVector<QPair<QString, QString>> apps)
+bool AppSplitTunnelingUiController::addApps(QVector<QPair<QString, QString>> apps)
 {
+    bool changed = false;
     for (const auto &app : apps) {
 #ifdef Q_OS_WIN
         amnezia::InstalledAppInfo appInfo { app.first, "", app.second };
 #else
         amnezia::InstalledAppInfo appInfo { app.first, app.second, "" };
 #endif
-        m_appSplitTunnelingController->addApp(appInfo);
+        changed |= m_appSplitTunnelingController->addApp(appInfo);
+    }
+    if (!changed) {
+        return false;
     }
     emit finished(tr("The selected applications have been added"));
+    return true;
 }
 
-void AppSplitTunnelingUiController::removeApp(const int index)
+bool AppSplitTunnelingUiController::removeApp(const int index)
 {
     auto modelIndex = m_appSplitTunnelingModel->index(index);
+    if (!modelIndex.isValid()) {
+        return false;
+    }
     auto appPath = m_appSplitTunnelingModel->data(modelIndex, AppSplitTunnelingModel::Roles::AppPathRole).toString();
     m_appSplitTunnelingController->removeApp(index);
 
     QFileInfo fileInfo(appPath);
     emit finished(tr("Application removed: %1").arg(fileInfo.fileName()));
+    return true;
 }
 
 void AppSplitTunnelingUiController::toggleSplitTunneling(bool enabled)

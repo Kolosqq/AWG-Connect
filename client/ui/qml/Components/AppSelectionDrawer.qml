@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import QtQuick.Dialogs
 
 import "../Controls2"
+import "../Config"
 
 SheetType {
     id: root
@@ -25,7 +26,7 @@ SheetType {
                 root.close()
                 var path = SystemController.getFileName(qsTr("Open executable file"), qsTr("Executable files (*.exe)"))
                 if (path !== "") {
-                    AppSplitTunnelingController.addApp(path)
+                    Dialogs.applySplitTunnelingChange(function() { return AppSplitTunnelingController.addApp(path) })
                 }
             }
         }
@@ -48,7 +49,8 @@ SheetType {
         id: folderDialog
         title: qsTr("Choose a folder including its subfolders")
         onAccepted: {
-            AppSplitTunnelingController.addFolder(selectedFolder)
+            const folder = selectedFolder
+            Dialogs.applySplitTunnelingChange(function() { return AppSplitTunnelingController.addFolder(folder) })
             root.close()
         }
     }
