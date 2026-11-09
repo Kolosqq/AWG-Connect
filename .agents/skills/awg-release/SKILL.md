@@ -1,0 +1,9 @@
+---
+name: awg-release
+description: Prepare, version, verify, and publish a Windows x64 AWG Connect installer through GitHub Releases after explicit approval.
+---
+
+1. Identify the candidate commit and the latest fork tag and GitHub Release. The fork's public version and `v<version>` tag are distinct from upstream's `AMNEZIAVPN_VERSION` in `CMakeLists.txt`. Agree on the public version and stable or prerelease status before changing release metadata. Check the installer metadata, asset name, and download links in `README.md` and `README_RU.md` against that version.
+2. Build the exact candidate SHA with `.github/workflows/windows-split-tunneling.yml` or reproduce its configure, build, CTest, and CPack IFW steps. Require successful Windows regression CI for that SHA, including its isolated WFP test, and use the `windows-split-tunneling-installer` artifact from that run. Confirm the client and service came from the same build. Check the SHA of any manually dispatched run before using its artifact.
+3. Use `awg-regression` for the real-driver VM matrix on that installer. Smoke-test clean install, upgrade with retained settings, and uninstall cleanup. Check the installer and driver signatures with `Get-AuthenticodeSignature` and record actual signing status. Compute the final asset hash with `Get-FileHash -Algorithm SHA256`. Stop on failed or missing required checks and report the gap.
+4. Present the candidate SHA, version/tag, asset name and SHA-256, release notes, signing status and verification results for approval. After explicit approval for that candidate, verify that the tag and release are unused or already point at the approved candidate. Publish to `Kolosqq/AWG-Connect` with the verified installer and checksum, targeting the exact SHA and approved release type. Check the published tag, assets and download hash. If a remote write partially succeeds, inspect remote state before retrying.
