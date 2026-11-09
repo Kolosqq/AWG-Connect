@@ -42,15 +42,17 @@ void ConnectionUiController::openConnection()
     m_openedServerId = serverId;
 }
 
-void ConnectionUiController::applySplitTunnelingChanges()
+bool ConnectionUiController::applySplitTunnelingChanges()
 {
-    if (!isConnected() || m_openedServerId.isEmpty()) {
-        return;
+    if (!isConnected()) {
+        return true;
     }
     const auto error = m_connectionController->openConnection(m_openedServerId, true);
     if (error != ErrorCode::NoError) {
         emit connectionErrorOccurred(error);
+        return false;
     }
+    return true;
 }
 
 void ConnectionUiController::closeConnection()

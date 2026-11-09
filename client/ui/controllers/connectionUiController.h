@@ -34,7 +34,7 @@ public slots:
 
     void openConnection();
     void closeConnection();
-    void applySplitTunnelingChanges();
+    bool applySplitTunnelingChanges();
 
     bool isRevokeBlockedDuringActiveConnection(const QString &serverId, int containerIndex, const QString &clientId) const;
 

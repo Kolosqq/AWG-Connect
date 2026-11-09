@@ -82,6 +82,11 @@ private slots:
         page->setProperty("pageEnabled", false);
         QVERIFY(!selector->property("enabled").toBool());
         page.reset();
+        QQmlComponent sitesComponent(&engine, QUrl::fromLocalFile(qmlDirectory + "/Pages2/PageSettingsSplitTunneling.qml"));
+        QTRY_VERIFY_WITH_TIMEOUT(sitesComponent.status() != QQmlComponent::Loading, 10000);
+        QVERIFY2(sitesComponent.isReady(), qPrintable(sitesComponent.errorString()));
+        QScopedPointer<QObject> sitesPage(sitesComponent.create());
+        QVERIFY2(sitesPage, qPrintable(sitesComponent.errorString()));
 #ifdef Q_OS_WIN
         controller.m_appSplitTunnelingUiController->toggleSplitTunneling(true);
         controller.m_appSplitTunnelingUiController->setRouteMode(AppsRouteMode::VpnOnlyForwardApps);

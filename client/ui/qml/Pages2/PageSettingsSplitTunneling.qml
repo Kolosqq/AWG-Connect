@@ -131,7 +131,8 @@ PageType {
                     onToggled: {
                         const requested = checked
                         checked = Qt.binding(function() { return IpSplitTunnelingController.isSplitTunnelingEnabled })
-                        Dialogs.applySplitTunnelingChange(function() { IpSplitTunnelingController.toggleSplitTunneling(requested) })
+                        Dialogs.applySplitTunnelingChange(function() { IpSplitTunnelingController.toggleSplitTunneling(requested) },
+                                                           "", "", function() { IpSplitTunnelingController.toggleSplitTunneling(!requested) })
                     }
                 }
             }
@@ -153,7 +154,9 @@ PageType {
                     if (IpSplitTunnelingController.routeMode !== root.routeModes[index].type) {
                         const requested = root.routeModes[index].type
                         modeSelector.currentIndex = Qt.binding(function() { return root.routeModeIndex })
-                        Dialogs.applySplitTunnelingChange(function() { IpSplitTunnelingController.routeMode = requested })
+                        const previous = IpSplitTunnelingController.routeMode
+                        Dialogs.applySplitTunnelingChange(function() { IpSplitTunnelingController.routeMode = requested },
+                                                           "", "", function() { IpSplitTunnelingController.routeMode = previous })
                     }
                 }
 

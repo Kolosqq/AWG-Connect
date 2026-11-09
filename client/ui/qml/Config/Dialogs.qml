@@ -6,7 +6,7 @@ QtObject {
     signal questionRequested(string headerText, string descriptionText, string yesButtonText, string noButtonText,
                              var yesButtonFunction, var noButtonFunction)
 
-    function applySplitTunnelingChange(save, title, description) {
+    function applySplitTunnelingChange(save, title, description, restore) {
         if (Qt.platform.os === "windows" && ConnectionController.isConnectionInProgress)
             return
 
@@ -14,8 +14,8 @@ QtObject {
         function apply() {
             if (Qt.platform.os === "windows" && ConnectionController.isConnectionInProgress)
                 return
-            if (save() !== false && reconnect)
-                ConnectionController.applySplitTunnelingChanges()
+            if (save() !== false && reconnect && !ConnectionController.applySplitTunnelingChanges() && restore)
+                restore()
         }
         if (reconnect) {
             askQuestion(title || qsTr("Save split tunneling changes?"),
