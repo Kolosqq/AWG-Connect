@@ -32,7 +32,7 @@ namespace
     }
 }
 
-int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
+int main()
 {
     int count = 0;
     auto argv = CommandLineToArgvW(GetCommandLineW(), &count);

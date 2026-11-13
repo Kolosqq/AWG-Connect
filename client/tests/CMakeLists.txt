@@ -10,6 +10,9 @@ function(amnezia_copy_runtime_dlls)
     foreach(_target ${_targets})
         get_target_property(_type ${_target} TYPE)
         if(_type STREQUAL "EXECUTABLE")
+            if(_target STREQUAL "test_fork_update")
+                continue()
+            endif()
             add_custom_command(TARGET ${_target} POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E copy_if_different
                     "$<FILTER:$<TARGET_RUNTIME_DLLS:${_target}>,EXCLUDE,/Qt6[^/]*\\.dll$>"
