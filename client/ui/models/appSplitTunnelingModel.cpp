@@ -1,5 +1,7 @@
 #include "appSplitTunnelingModel.h"
 
+#include "core/utils/appSelection.h"
+
 AppSplitTunnelingModel::AppSplitTunnelingModel(QObject *parent)
     : QAbstractListModel(parent)
 {
@@ -20,6 +22,13 @@ QVariant AppSplitTunnelingModel::data(const QModelIndex &index, int role) const
         case AppPathRole: {
             return m_apps.at(index.row()).appName;
         }
+        case EntryGroupRole: {
+            const auto &app = m_apps.at(index.row());
+            if (appSelection::localPath(app.appPath).endsWith('/')) {
+                return 2;
+            }
+            return app.selectedFromProcess ? 0 : 1;
+        }
         default: {
             return true;
         }
@@ -39,5 +48,6 @@ QHash<int, QByteArray> AppSplitTunnelingModel::roleNames() const
 {
     QHash<int, QByteArray> roles;
     roles[AppPathRole] = "appPath";
+    roles[EntryGroupRole] = "entryGroup";
     return roles;
 }

@@ -240,6 +240,7 @@ QVector<InstalledAppInfo> SecureAppSettingsRepository::vpnApps(AppsRouteMode mod
         appInfo.packageName = app.toObject().value("packageName").toString();
         appInfo.appPath = app.toObject().value("appPath").toString();
 
+        appInfo.selectedFromProcess = app.toObject().value("selectedFromProcess").toBool();
         apps.push_back(appInfo);
     }
     return apps;
@@ -253,6 +254,7 @@ void SecureAppSettingsRepository::setVpnApps(AppsRouteMode mode, const QVector<I
         appInfo.insert("appName", app.appName);
         appInfo.insert("packageName", app.packageName);
         appInfo.insert("appPath", app.appPath);
+        appInfo.insert("selectedFromProcess", app.selectedFromProcess);
         appsArray.push_back(appInfo);
     }
     setValue("Conf/" + appsRouteModeString(mode), appsArray);

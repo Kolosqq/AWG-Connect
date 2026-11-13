@@ -34,6 +34,7 @@ public slots:
     int getRouteMode() const;
     bool isSplitTunnelingEnabled() const;
 
+    QStringList savedExecutablePaths() const;
     void updateModel();
 
 signals:

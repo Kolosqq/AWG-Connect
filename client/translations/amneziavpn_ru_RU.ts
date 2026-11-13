@@ -99,12 +99,20 @@
     <message>
         <location filename="../ui/controllers/appSplitTunnelingUiController.cpp" line="40"/>
         <source>The selected applications have been added</source>
-        <translation>Выбранные приложения уже были добавлены</translation>
+        <translation>Выбранные приложения добавлены</translation>
     </message>
     <message>
         <location filename="../ui/controllers/appSplitTunnelingUiController.cpp" line="50"/>
         <source>Application removed: %1</source>
         <translation>Приложение удалено: %1</translation>
+    </message>
+    <message>
+        <source>Folder added</source>
+        <translation>Папка добавлена</translation>
+    </message>
+    <message>
+        <source>The folder is unavailable or has already been added</source>
+        <translation>Папка недоступна или уже добавлена</translation>
     </message>
 </context>
 <context>
@@ -4099,6 +4107,22 @@ Create one from the current settings.</source>
         <source>Executable files (*.*)</source>
         <translation>Исполняемые файлы (*.*)</translation>
     </message>
+    <message>
+        <source>Processes</source>
+        <translation>Процессы</translation>
+    </message>
+    <message>
+        <source>Executable files</source>
+        <translation>EXE-файлы</translation>
+    </message>
+    <message>
+        <source>Folders</source>
+        <translation>Папки</translation>
+    </message>
+    <message>
+        <source>Via VPN mode supports AmneziaWG and WireGuard with site split tunneling turned off. Kill Switch protects selected apps only; strict mode also blocks them after manual disconnect. System DNS stays direct. An empty list sends all apps directly.</source>
+        <translation>Режим «Через VPN» работает с AmneziaWG и WireGuard при выключенном раздельном туннелировании по сайтам. Kill Switch защищает только выбранные приложения. В строгом режиме они остаются заблокированными после ручного отключения VPN. Системный DNS работает напрямую. Если список пуст, все приложения работают напрямую.</translation>
+    </message>
 </context>
 <context>
     <name>PageSettingsApplication</name>
@@ -4494,6 +4518,22 @@ Create one from the current settings.</source>
         <location filename="../ui/qml/Pages2/PageSettingsKillSwitch.qml" line="123"/>
         <source>DNS servers listed here will remain accessible when KillSwitch is active.</source>
         <translation>DNS-серверы из этого списка останутся доступными при активном KillSwitch.</translation>
+    </message>
+    <message>
+        <source>Kill Switch protects only the selected VPN applications. Other applications and system DNS continue directly.</source>
+        <translation>Kill Switch защищает только приложения, выбранные для VPN. Остальные приложения и системный DNS работают напрямую.</translation>
+    </message>
+    <message>
+        <source>Selected applications are blocked after an unexpected disconnect and released after manual disconnect</source>
+        <translation>После обрыва VPN выбранные приложения блокируются. При ручном отключении им доступен прямой выход в сеть.</translation>
+    </message>
+    <message>
+        <source>Selected applications stay blocked while VPN is off, including after manual disconnect</source>
+        <translation>Выбранные приложения остаются заблокированными, пока VPN выключен, в том числе после ручного отключения.</translation>
+    </message>
+    <message>
+        <source>Selected applications will have no direct access while VPN is off. Reconnect VPN or disable Kill Switch to restore their access. Other applications stay direct.</source>
+        <translation>Пока VPN выключен, выбранные приложения не смогут выйти в сеть. Подключите VPN или отключите Kill Switch, чтобы вернуть им доступ. Остальные приложения работают напрямую.</translation>
     </message>
 </context>
 <context>
@@ -7094,6 +7134,14 @@ FileZilla или другие SFTP-клиенты, а также смонтир�
         <source>Can&apos;t find the colon separator between hostname and port</source>
         <translation>Невозможно найти разделитель-двоеточие между именем хоста и портом</translation>
     </message>
+    <message>
+        <source>On Windows, Via VPN app mode requires AmneziaWG or WireGuard, IPv4 AllowedIPs 0.0.0.0/0, and site split tunneling turned off. Settings have not been changed.</source>
+        <translation>В Windows для режима «Через VPN» нужны AmneziaWG или WireGuard, IPv4 AllowedIPs 0.0.0.0/0 и выключенное раздельное туннелирование по сайтам. Настройки не изменены.</translation>
+    </message>
+    <message>
+        <source>The background service could not apply Via VPN app protection. Check the selected paths and install the matching client and service from this fork.</source>
+        <translation>Служба не смогла применить защиту приложений в режиме «Через VPN». Проверьте выбранные пути и убедитесь, что клиент и служба установлены из одной сборки.</translation>
+    </message>
 </context>
 <context>
     <name>RadioItemType</name>
@@ -7586,6 +7634,79 @@ Remove the server from the app to continue.</source>
         <location filename="../ui/qml/main2.qml" line="287"/>
         <source>Cannot remove server during active connection</source>
         <translation>Невозможно удалить сервер во время активного соединения</translation>
+    </message>
+</context>
+<context>
+    <name>RunningAppsDialog</name>
+    <message>
+        <source>Running applications</source>
+        <translation>Запущенные приложения</translation>
+    </message>
+    <message>
+        <source>Search by executable name</source>
+        <translation>Поиск по имени EXE-файла</translation>
+    </message>
+    <message>
+        <source>No matching applications</source>
+        <translation>Приложения не найдены</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Отмена</translation>
+    </message>
+    <message>
+        <source>Add selected</source>
+        <translation>Добавить выбранные</translation>
+    </message>
+</context>
+<context>
+    <name>AppSelectionDrawer</name>
+    <message>
+        <source>Choose executable</source>
+        <translation>Выбрать EXE-файл</translation>
+    </message>
+    <message>
+        <source>Open executable file</source>
+        <translation>Открыть EXE-файл</translation>
+    </message>
+    <message>
+        <source>Executable files (*.exe)</source>
+        <translation>Исполняемые файлы (*.exe)</translation>
+    </message>
+    <message>
+        <source>Choose folder</source>
+        <translation>Выбрать папку</translation>
+    </message>
+    <message>
+        <source>Choose running application</source>
+        <translation>Выбрать запущенный процесс</translation>
+    </message>
+    <message>
+        <source>Choose a folder including its subfolders</source>
+        <translation>Выбрать папку со всеми вложенными папками</translation>
+    </message>
+</context>
+<context>
+    <name>Dialogs</name>
+    <message>
+        <source>Save split tunneling changes?</source>
+        <translation>Сохранить изменения раздельного туннелирования?</translation>
+    </message>
+    <message>
+        <source>The VPN will reconnect to apply the changes.</source>
+        <translation>VPN переподключится, чтобы применить изменения.</translation>
+    </message>
+    <message>
+        <source>Save and reconnect</source>
+        <translation>Сохранить и переподключить</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Отмена</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>Продолжить</translation>
     </message>
 </context>
 </TS>

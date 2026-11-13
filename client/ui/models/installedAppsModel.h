@@ -3,6 +3,7 @@
 
 #include <QAbstractListModel>
 #include <QJsonArray>
+#include <QStringList>
 
 class InstalledAppsModel : public QAbstractListModel
 {
@@ -13,6 +14,7 @@ public:
         AppNameRole = Qt::UserRole + 1,
         PackageNameRole,
         AppIconRole,
+        IsAppSavedRole,
         IsAppSelectedRole
     };
 
@@ -27,6 +29,7 @@ public slots:
     QVector<QPair<QString, QString>> getSelectedAppsInfo();
 
     void updateModel();
+    void markSavedExecutables(const QStringList &paths);
 
 protected:
     QHash<int, QByteArray> roleNames() const override;
@@ -34,6 +37,7 @@ protected:
 private:
     QJsonArray m_installedApps;
     QSet<int> m_selectedAppIndexes;
+    QSet<QString> m_savedExecutables;
 };
 
 #endif // INSTALLEDAPPSMODEL_H

@@ -136,6 +136,7 @@ private slots:
         const QString stored =
                 m_coreController->m_appSettingsRepository->vpnApps(AppsRouteMode::VpnOnlyForwardApps).first().appPath;
         QVERIFY(stored.endsWith('/'));
+        QCOMPARE(model->data(model->index(0, 0), AppSplitTunnelingModel::EntryGroupRole).toInt(), 2);
         QCOMPARE(QFileInfo(stored).canonicalFilePath(), QFileInfo(folder.path()).canonicalFilePath());
         controller->addFolder(QUrl::fromLocalFile(folder.path()));
         controller->updateModel();
@@ -160,9 +161,32 @@ private slots:
         QCOMPARE(model->rowCount(), 1);
         QCOMPARE(m_coreController->m_appSettingsRepository->vpnApps(AppsRouteMode::VpnOnlyForwardApps).first().appPath,
                  QCoreApplication::applicationFilePath());
-        processes.selectedStateChanged(current, true);
-        processes.updateModel();
-        QVERIFY(processes.getSelectedAppsInfo().isEmpty());
+        AppSplitTunnelingController reopened(m_coreController->m_appSettingsRepository);
+        const auto saved = reopened.getApps();
+        QCOMPARE(saved.size(), 1);
+        QVERIFY(saved.first().selectedFromProcess);
+        QCOMPARE(model->data(model->index(0, 0), AppSplitTunnelingModel::EntryGroupRole).toInt(), 0);
+
+        InstalledAppsModel reopenedPicker;
+        reopenedPicker.markSavedExecutables({ QUrl::fromLocalFile(saved.first().appPath).toString() });
+        reopenedPicker.updateModel();
+        bool foundSaved = false;
+        for (int row = 0; row < reopenedPicker.rowCount(); ++row) {
+            const auto index = reopenedPicker.index(row, 0);
+            if (reopenedPicker.data(index, InstalledAppsModel::PackageNameRole)
+                        .toString()
+                        .compare(saved.first().appPath, Qt::CaseInsensitive)
+                == 0) {
+                QVERIFY(reopenedPicker.data(index, InstalledAppsModel::IsAppSavedRole).toBool());
+                foundSaved = true;
+            }
+        }
+        QVERIFY(foundSaved);
+        QVERIFY(reopenedPicker.getSelectedAppsInfo().isEmpty());
+        controller->removeApp(0);
+        QVERIFY(controller->addApp(QCoreApplication::applicationFilePath()));
+        controller->updateModel();
+        QCOMPARE(model->data(model->index(0, 0), AppSplitTunnelingModel::EntryGroupRole).toInt(), 1);
         controller->removeApp(0);
 #endif
     }

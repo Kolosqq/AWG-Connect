@@ -58,8 +58,16 @@ PageType {
                 caseSensitivity: Qt.CaseInsensitive
             }
             sorters: [
+                RoleSorter { roleName: "entryGroup"; enabled: Qt.platform.os === "windows" },
                 RoleSorter { roleName: "appPath"; sortOrder: Qt.AscendingOrder }
             ]
+        }
+
+        section.property: Qt.platform.os === "windows" ? "entryGroup" : ""
+        section.delegate: SectionHeaderType {
+            required property string section
+            width: listView.width
+            headerText: [qsTr("Processes"), qsTr("Executable files"), qsTr("Folders")][Number(section)]
         }
 
         header: ColumnLayout {

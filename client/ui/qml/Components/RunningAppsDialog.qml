@@ -24,6 +24,7 @@ Popup {
 
     onAboutToShow: {
         search.clear()
+        processes.markSavedExecutables(AppSplitTunnelingController.savedExecutablePaths())
         processes.updateModel()
     }
     onOpened: search.forceActiveFocus()
@@ -82,7 +83,8 @@ Popup {
                 CheckBoxType {
                     Layout.fillWidth: true
                     text: appName
-                    checked: isAppSelected
+                    checked: isAppSaved || isAppSelected
+                    enabled: !isAppSaved
                     onToggled: processes.selectedStateChanged(proxy.mapToSource(index), checked)
                 }
             }

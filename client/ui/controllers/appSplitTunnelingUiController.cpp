@@ -49,7 +49,7 @@ bool AppSplitTunnelingUiController::addApps(QVector<QPair<QString, QString>> app
     bool changed = false;
     for (const auto &app : apps) {
 #ifdef Q_OS_WIN
-        amnezia::InstalledAppInfo appInfo { app.first, "", app.second };
+        amnezia::InstalledAppInfo appInfo { app.first, "", app.second, true };
 #else
         amnezia::InstalledAppInfo appInfo { app.first, app.second, "" };
 #endif
@@ -96,6 +96,15 @@ int AppSplitTunnelingUiController::getRouteMode() const
 bool AppSplitTunnelingUiController::isSplitTunnelingEnabled() const
 {
     return m_appSplitTunnelingController->isSplitTunnelingEnabled();
+}
+
+QStringList AppSplitTunnelingUiController::savedExecutablePaths() const
+{
+    QStringList paths;
+    for (const auto &app : m_appSplitTunnelingController->getApps()) {
+        paths.append(app.appPath.isEmpty() ? app.packageName : app.appPath);
+    }
+    return paths;
 }
 
 void AppSplitTunnelingUiController::updateModel()

@@ -1,5 +1,7 @@
 #include "installedAppsModel.h"
 
+#include "core/utils/appSelection.h"
+
 #include <QDir>
 #include <QEventLoop>
 #include <QFileInfo>
@@ -53,6 +55,9 @@ QVariant InstalledAppsModel::data(const QModelIndex &index, int role) const
     case PackageNameRole: {
         return m_installedApps.at(index.row()).toObject().value("package");
     }
+    case IsAppSavedRole:
+        return m_savedExecutables.contains(
+                m_installedApps.at(index.row()).toObject().value("package").toString().toCaseFolded());
     case IsAppSelectedRole: {
         return m_selectedAppIndexes.contains(index.row());
     }
@@ -85,6 +90,17 @@ QVector<QPair<QString, QString>> InstalledAppsModel::getSelectedAppsInfo()
 
     m_selectedAppIndexes.clear();
     return appsInfo;
+}
+
+void InstalledAppsModel::markSavedExecutables(const QStringList &paths)
+{
+    m_savedExecutables.clear();
+    for (const auto &path : paths) {
+        m_savedExecutables.insert(appSelection::localPath(path).toCaseFolded());
+    }
+    if (rowCount() > 0) {
+        emit dataChanged(index(0, 0), index(rowCount() - 1, 0), { IsAppSavedRole });
+    }
 }
 
 void InstalledAppsModel::updateModel()
@@ -144,6 +160,7 @@ QHash<int, QByteArray> InstalledAppsModel::roleNames() const
     roles[AppNameRole] = "appName";
     roles[AppIconRole] = "appIcon";
     roles[PackageNameRole] = "packageName";
+    roles[IsAppSavedRole] = "isAppSaved";
     roles[IsAppSelectedRole] = "isAppSelected";
     return roles;
 }

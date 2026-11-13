@@ -16,7 +16,8 @@ public:
     enum Roles {
         AppPathRole = Qt::UserRole + 1,
         PackageAppNameRole,
-        PackageAppIconRole
+        PackageAppIconRole,
+        EntryGroupRole
     };
 
     explicit AppSplitTunnelingModel(QObject *parent = nullptr);

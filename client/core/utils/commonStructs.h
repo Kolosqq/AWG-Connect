@@ -23,6 +23,7 @@ namespace amnezia
         QString appName;
         QString packageName;
         QString appPath;
+        bool selectedFromProcess = false;
 
         bool operator==(const InstalledAppInfo& other) const {
             if (!packageName.isEmpty()) {
