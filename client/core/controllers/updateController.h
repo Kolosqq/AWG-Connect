@@ -85,6 +85,7 @@ private:
 #if defined(Q_OS_WIN)
     void checkGithubRelease(bool upstream);
     void downloadWindowsPackage();
+    void downloadWindowsSignature();
     void installWindowsPackage();
     std::unique_ptr<QTemporaryDir> m_staging;
     QString m_packageUrl;

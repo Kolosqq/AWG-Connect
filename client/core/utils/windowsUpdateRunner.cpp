@@ -36,6 +36,11 @@ int main()
 {
     int count = 0;
     auto argv = CommandLineToArgvW(GetCommandLineW(), &count);
+    if (argv && count == 4 && std::wstring(argv[1]) == L"--verify-only") {
+        const bool verified = windowsUpdate::verifyPackage(argv[2], argv[3]);
+        LocalFree(argv);
+        return verified ? 0 : 1;
+    }
     if (!argv || count != 5) {
         LocalFree(argv);
         return 1;
@@ -84,6 +89,7 @@ int main()
     std::ofstream(package.parent_path() / "result.txt") << result << '\n';
     std::error_code cleanupError;
     std::filesystem::remove(package, cleanupError);
+    std::filesystem::remove(package.wstring() + L".sig", cleanupError);
     if (result != ERROR_SUCCESS && result != ERROR_SUCCESS_REBOOT_REQUIRED && result != ERROR_SUCCESS_REBOOT_INITIATED) {
         MessageBoxW(
                 nullptr,

@@ -2,15 +2,15 @@
 
 #include <array>
 #include <cwchar>
-#include <cwctype>
+#include <filesystem>
+#include <fstream>
+#include <vector>
 
 // clang-format off
 #include <windows.h>
 #include <msi.h>
 #include <msiquery.h>
-#include <wincrypt.h>
-#include <wintrust.h>
-#include <softpub.h>
+#include <bcrypt.h>
 // clang-format on
 
 #include "version.h"
@@ -58,52 +58,97 @@ bool windowsUpdate::hasInstalledProduct(const std::wstring &version)
 
 bool windowsUpdate::verifyPackage(const std::wstring &path, const std::wstring &version)
 {
-    const std::string pin = AWG_UPDATE_SIGNER_SHA256;
-    if (pin.size() != 64) {
+    if (!verifySignature(path, path + L".sig", AWG_UPDATE_PUBLIC_KEY)) {
         return false;
     }
-
-    WINTRUST_FILE_INFO file { };
-    file.cbStruct = sizeof(file);
-    file.pcwszFilePath = path.c_str();
-    WINTRUST_DATA trust { };
-    trust.cbStruct = sizeof(trust);
-    trust.dwUIChoice = WTD_UI_NONE;
-    trust.fdwRevocationChecks = WTD_REVOKE_WHOLECHAIN;
-    trust.dwUnionChoice = WTD_CHOICE_FILE;
-    trust.pFile = &file;
-    trust.dwStateAction = WTD_STATEACTION_VERIFY;
-    trust.dwProvFlags = WTD_REVOCATION_CHECK_CHAIN_EXCLUDE_ROOT;
-    GUID policy = WINTRUST_ACTION_GENERIC_VERIFY_V2;
-    bool verified = false;
-    if (WinVerifyTrust(nullptr, &policy, &trust) == ERROR_SUCCESS) {
-        const auto data = WTHelperProvDataFromStateData(trust.hWVTStateData);
-        const auto signer = data ? WTHelperGetProvSignerFromChain(data, 0, FALSE, 0) : nullptr;
-        const auto cert = signer ? WTHelperGetProvCertFromChain(signer, 0) : nullptr;
-        std::array<BYTE, 32> fingerprint { };
-        DWORD length = static_cast<DWORD>(fingerprint.size());
-        if (cert && CertGetCertificateContextProperty(cert->pCert, CERT_SHA256_HASH_PROP_ID, fingerprint.data(), &length)
-            && length == fingerprint.size()) {
-            constexpr char hex[] = "0123456789abcdef";
-            verified = true;
-            for (size_t i = 0; i < fingerprint.size(); ++i) {
-                if (std::towlower(pin[2 * i]) != hex[fingerprint[i] >> 4]
-                    || std::towlower(pin[2 * i + 1]) != hex[fingerprint[i] & 15]) {
-                    verified = false;
-                    break;
-                }
-            }
-        }
-    }
-    trust.dwStateAction = WTD_STATEACTION_CLOSE;
-    WinVerifyTrust(nullptr, &policy, &trust);
-
     MSIHANDLE database = 0;
-    if (!verified || MsiOpenDatabaseW(path.c_str(), nullptr, &database) != ERROR_SUCCESS) {
+    if (MsiOpenDatabaseW(path.c_str(), nullptr, &database) != ERROR_SUCCESS) {
         return false;
     }
     const auto family = property(database, L"SELECT `Value` FROM `Property` WHERE `Property` = 'UpgradeCode'");
     const auto packageVersion = property(database, L"SELECT `Value` FROM `Property` WHERE `Property` = 'ProductVersion'");
     MsiCloseHandle(database);
     return _wcsicmp(family.c_str(), upgradeCode) == 0 && packageVersion == version;
+}
+
+bool windowsUpdate::verifySignature(const std::wstring &path, const std::wstring &signaturePath,
+                                    const std::string &publicKeyHex)
+{
+    constexpr size_t signatureSize = 384;
+    constexpr size_t keySize = sizeof(BCRYPT_RSAKEY_BLOB) + 3 + signatureSize;
+    if (publicKeyHex.size() != keySize * 2) {
+        return false;
+    }
+    auto nibble = [](char digit) -> int {
+        if (digit >= '0' && digit <= '9') {
+            return digit - '0';
+        }
+        return digit >= 'a' && digit <= 'f' ? digit - 'a' + 10 : -1;
+    };
+    std::array<UCHAR, keySize> publicKey { };
+    for (size_t i = 0; i < publicKey.size(); ++i) {
+        const auto hi = nibble(publicKeyHex[2 * i]);
+        const auto lo = nibble(publicKeyHex[2 * i + 1]);
+        if (hi < 0 || lo < 0) {
+            return false;
+        }
+        publicKey[i] = static_cast<UCHAR>(hi * 16 + lo);
+    }
+
+    std::ifstream signatureFile(std::filesystem::path(signaturePath), std::ios::binary);
+    std::array<UCHAR, signatureSize> signature { };
+    if (!signatureFile.read(reinterpret_cast<char *>(signature.data()), signature.size())
+        || signatureFile.peek() != std::char_traits<char>::eof()) {
+        return false;
+    }
+
+    std::ifstream package(std::filesystem::path(path), std::ios::binary);
+    if (!package) {
+        return false;
+    }
+
+    BCRYPT_ALG_HANDLE sha = nullptr;
+    BCRYPT_HASH_HANDLE hash = nullptr;
+    BCRYPT_ALG_HANDLE rsa = nullptr;
+    BCRYPT_KEY_HANDLE key = nullptr;
+    const bool verified = [&] {
+        if (BCryptOpenAlgorithmProvider(&sha, BCRYPT_SHA256_ALGORITHM, nullptr, 0) != 0
+            || BCryptCreateHash(sha, &hash, nullptr, 0, nullptr, 0, 0) != 0) {
+            return false;
+        }
+        std::vector<UCHAR> buffer(64 * 1024);
+        size_t size = 0;
+        while (package) {
+            package.read(reinterpret_cast<char *>(buffer.data()), buffer.size());
+            const auto count = static_cast<ULONG>(package.gcount());
+            size += count;
+            if (size > 512 * 1024 * 1024 || (count && BCryptHashData(hash, buffer.data(), count, 0) != 0)) {
+                return false;
+            }
+        }
+        std::array<UCHAR, 32> digest { };
+        if (!package.eof() || package.bad() || size == 0 || BCryptFinishHash(hash, digest.data(), digest.size(), 0) != 0
+            || BCryptOpenAlgorithmProvider(&rsa, BCRYPT_RSA_ALGORITHM, nullptr, 0) != 0
+            || BCryptImportKeyPair(rsa, nullptr, BCRYPT_RSAPUBLIC_BLOB, &key, publicKey.data(), publicKey.size(), 0)
+                    != 0) {
+            return false;
+        }
+        BCRYPT_PSS_PADDING_INFO padding { BCRYPT_SHA256_ALGORITHM, 32 };
+        return BCryptVerifySignature(key, &padding, digest.data(), digest.size(), signature.data(), signature.size(),
+                                     BCRYPT_PAD_PSS)
+                == 0;
+    }();
+    if (key) {
+        BCryptDestroyKey(key);
+    }
+    if (rsa) {
+        BCryptCloseAlgorithmProvider(rsa, 0);
+    }
+    if (hash) {
+        BCryptDestroyHash(hash);
+    }
+    if (sha) {
+        BCryptCloseAlgorithmProvider(sha, 0);
+    }
+    return verified;
 }

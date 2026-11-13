@@ -171,7 +171,7 @@ PageType {
                     visible: Qt.platform.os === "windows" && !UpdateController.canInstall
                     text: UpdateController.upstreamNotice
                           ? qsTr("You are using the AWG-Connect fork. Install updates from AWG-Connect Releases.")
-                          : qsTr("Automatic installation requires a signed AWG-Connect MSI and an existing MSI installation.")
+                          : qsTr("Automatic installation requires an AWG-Connect MSI with a matching update signature and an existing MSI installation.")
                 }
 
                 H3TextType {

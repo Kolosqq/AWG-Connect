@@ -56,15 +56,12 @@ jobs:
           path: ~/.conan2
           key: windows-2022-conan-2.28-release-${{ hashFiles('recipes/**', 'conanfile.py', 'cmake/recipes_bootstrap.cmake') }}
       - name: Configure Release build
-        env:
-          AWG_UPDATE_SIGNER_SHA256: ${{ vars.AWG_UPDATE_SIGNER_SHA256 }}
         id: configure
         shell: cmd
         run: >-
           cmake -S . -B deploy/build -G Ninja -DCMAKE_BUILD_TYPE=Release
           "-DCMAKE_PREFIX_PATH=%QT_ROOT_DIR%" -DAMNEZIA_BUILD_TESTS=ON
           -DCONAN_INSTALL_BUILD_CONFIGURATIONS=Release
-          "-DAWG_UPDATE_SIGNER_SHA256=%AWG_UPDATE_SIGNER_SHA256%"
       - name: Cache native dependencies
         if: steps.conan-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4

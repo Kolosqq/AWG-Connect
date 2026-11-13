@@ -1,19 +1,33 @@
 # Windows updates
 
-Windows checks the latest stable GitHub Release for Kolosqq/AWG-Connect and uses the fork version from CMake. If the fork is current, the app checks the official AmneziaVPN release for an informational notice.
+AWG-Connect checks stable releases in the fork repository. If the fork is current, the latest original AmneziaVPN release can appear as an informational notice. The Windows updater accepts the following pair of assets in release v<version>.
 
-The published 1.1.1 asset is an offline Qt IFW EXE. The automatic channel uses the existing WiX build and accepts a single signed MSI named AWG-Connect_<version>_windows_x64.msi in release v<version>. CI produces both installer formats. Existing IFW users need to uninstall the IFW application and install the MSI once, with their existing user settings retained. Do not install IFW and MSI side by side. Once on MSI, Windows Installer upgrades the existing installation.
+- AWG-Connect_<version>_windows_x64.msi
+- AWG-Connect_<version>_windows_x64.msi.sig
 
-Before distributing the first updater-enabled build, obtain the publisher's Authenticode certificate and set AWG_UPDATE_SIGNER_SHA256 to the SHA-256 of the leaf certificate (DER bytes). Configure it as a GitHub repository variable or a CMake cache value. This value is public. Keep the private key in the publisher's signing environment. An empty pin disables automatic installation. Sign each MSI after packaging using the existing signtool path or an approved signing service. Check its signature, signer fingerprint, MSI version and SHA-256 before attaching it to the approved release. Never upload unsigned MSI candidates to the automatic channel. A certificate change requires distributing a client that trusts the new certificate before using it for updates.
+Windows CNG verifies an RSA-3072 PSS signature over the entire MSI using SHA-256 and the public key built into the client and update runner. The binary signature is 384 bytes. The updater also checks the MSI version and the fork's upgrade identifier. The signature provides authenticity and integrity for AWG-Connect. Windows may still display an unknown publisher prompt for the MSI.
 
-The runner waits for the client to exit, locks the downloaded MSI against file writes and deletion, verifies the signature and package metadata again, and starts Windows Installer. Windows Installer manages elevation and service replacement. The package has an embedded cabinet and its removal of the old product runs inside the rollback transaction. User settings, keychain entries and VPN configs are outside the MSI installation directory. Windows Installer rollback covers a failed install transaction. It does not roll back a successful install after later application errors, and must be enabled by Windows policy. The runner records the Windows Installer exit code in result.txt in its temporary update directory.
+## Signing on the maintainer's Windows profile
 
-## VM acceptance
+The public key is in deploy/windows/update-public-key.hex. The private key is non-exportable and belongs to the local Windows user profile in the Microsoft Software Key Storage Provider. It is outside the repository and CI. This mechanism uses no Windows certificate store.
 
-Use disposable Windows snapshots and test packages signed by a test publisher trusted only by the VM. Build the client with that test certificate fingerprint. Start with a lower fork MSI version and import a test VPN profile and split list. Use a higher signed MSI for the update.
+Use PowerShell 7 on the signing machine. For the existing signing profile, run the following from the repository root after verifying the CI artifact, exact commit, version and package metadata.
 
-1. Verify offline and malformed GitHub responses, stable version ordering, no update for equal or older versions, and informational notices for official releases.
-2. Test cancelled and interrupted downloads, corrupted MSI, wrong publisher, wrong version and wrong upgrade family. Confirm no installation or elevation.
-3. Approve a valid update with VPN connected. Confirm tunnel shutdown, exit of the old client, Windows Installer elevation at install time, service startup and retained settings after restart.
-4. Inject a failing MSI installation operation after old-product removal and before InstallFinalize in a test-only package. Confirm Windows Installer restores the old files and service and that the previous client reconnects with the same profile and split list. Repeat with UAC cancellation. Do not change rollback policy.
-5. Exercise the IFW-to-MSI migration, MSI uninstall cleanup and VPN regression matrix before distributing the first signed build.
+    pwsh -File deploy/windows/verify-update-msi.ps1 -BuildDirectory <candidate-directory>
+    pwsh -File deploy/windows/sign-update.ps1 -Package <candidate-msi>
+
+Attach the MSI and its .sig to the approved release along with the SHA-256 list. Build with AWG_CONNECT_VERSION equal to the numeric part of the release tag. CI builds the package but cannot sign it. Review the exact candidate before publishing. Run the installed update runner with --verify-only <msi> <version> to check a package without installation. The expected exit code is 0 for a valid package and 1 for a rejected package.
+
+If the Windows profile or key is lost, distribute a new bootstrap client with a new public key through a trusted channel. Replacing the public key in GitHub alone cannot change the key pinned by existing installations.
+
+## Acceptance on Windows 11
+
+Each installation, removal or interruption of the active VPN on the main computer needs the user's approval. Use a time when a temporary network interruption is acceptable. First verify offline checks and tamper detection without installing anything.
+
+1. Make a private backup with the existing export tools and retain the previous installer. Keep the original Windows user account and its credential store. Record the current client version, VPN profile and split-tunneling rules without copying keys into logs.
+2. For the first transition from the published Qt IFW EXE, close the client and remove the IFW installation. Install the approved bootstrap MSI under the same Windows account and verify the retained profile and rules. Do not install the two packages side by side.
+3. Check updates with the network available. Use a local test feed or approved staging release to present a higher version. Test the damaged MSI or signature in the verifier first. Neither should reach Windows Installer. For the offline test, use a local unavailable endpoint in the test harness or perform the test during a user-approved network interruption.
+4. On a signed update, check that the client shuts down the tunnel and exits. Windows Installer replaces the service and starts it. Verify that the client reopens and that the profile and split rules are present. Reconnect and repeat the normal and strict Kill Switch checks.
+5. Test UAC cancellation separately. To exercise transaction rollback, use a dedicated test package and an isolated disposable CI runner. Avoid deliberately failing an installation on the main PC.
+
+Windows Installer restores the old files and service if installation fails inside its rollback transaction. Rollback must be enabled in Windows policy. The updater leaves the user configuration outside the package and relaunches the client after a failed installation when reboot is unnecessary. The runner records the Windows Installer exit code in result.txt in its temporary update directory. A failure after a successful transaction requires manual recovery with the saved installer and user backup.

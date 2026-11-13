@@ -1,6 +1,8 @@
 #include "updateController.h"
 
 #include "core/utils/forkUpdateVersion.h"
+#include <algorithm>
+
 #include <QDesktopServices>
 #include <QDir>
 #include <QFile>
@@ -404,7 +406,7 @@ int UpdateController::runLinuxInstaller(const QString &installerPath)
 bool UpdateController::canInstall() const
 {
 #ifdef Q_OS_WIN
-    return !m_upstreamNotice && !m_packageUrl.isEmpty() && sizeof(AWG_UPDATE_SIGNER_SHA256) == 65
+    return !m_upstreamNotice && !m_packageUrl.isEmpty()
             && windowsUpdate::hasInstalledProduct(QStringLiteral(AWG_CONNECT_VERSION).toStdWString());
 #else
     return true;
@@ -484,10 +486,16 @@ void UpdateController::checkGithubRelease(bool upstream)
         m_description = release.value("body").toString().left(24000);
         if (!upstream) {
             const auto name = QStringLiteral("AWG-Connect_%1_windows_x64.msi").arg(m_version);
-            for (const auto &entry : release.value("assets").toArray()) {
+            const auto assets = release.value("assets").toArray();
+            const bool hasSignature =
+                    std::any_of(assets.constBegin(), assets.constEnd(), [&name](const QJsonValue &entry) {
+                        const auto asset = entry.toObject();
+                        return asset.value("name").toString() == name + ".sig" && asset.value("size").toInt() == 384;
+                    });
+            for (const auto &entry : assets) {
                 const auto asset = entry.toObject();
                 const qint64 size = asset.value("size").toInteger();
-                if (asset.value("name").toString() == name && size > 0 && size <= 512 * 1024 * 1024) {
+                if (hasSignature && asset.value("name").toString() == name && size > 0 && size <= 512 * 1024 * 1024) {
                     m_packageUrl = QStringLiteral("https://github.com/Kolosqq/AWG-Connect/releases/download/v%1/%2")
                                            .arg(m_version, name);
                     m_packageSize = size;
@@ -548,6 +556,32 @@ void UpdateController::downloadWindowsPackage()
         if (reply->error() != QNetworkReply::NoError || !consume() || *received != m_packageSize || !file->commit()) {
             file->cancelWriting();
             logger.warning() << "Fork update download failed";
+            setUpdateState(UpdateState::State::DownloadError);
+            return;
+        }
+        downloadWindowsSignature();
+    });
+}
+
+void UpdateController::downloadWindowsSignature()
+{
+    QNetworkRequest request { QUrl(m_packageUrl + ".sig") };
+    request.setTransferTimeout(15000);
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    auto reply = amnApp->networkManager()->get(request);
+    connect(reply, &QNetworkReply::downloadProgress, this, [reply](qint64 received, qint64) {
+        if (received > 384) {
+            reply->abort();
+        }
+    });
+    connect(reply, &QNetworkReply::finished, this, [this, reply] {
+        reply->deleteLater();
+        const auto data = reply->readAll();
+        QSaveFile signature(m_packagePath + ".sig");
+        if (reply->error() != QNetworkReply::NoError || data.size() != 384 || !signature.open(QIODevice::WriteOnly)
+            || signature.write(data) != data.size() || !signature.commit()) {
+            QFile::remove(m_packagePath);
+            logger.warning() << "Fork update signature download failed";
             setUpdateState(UpdateState::State::DownloadError);
             return;
         }
