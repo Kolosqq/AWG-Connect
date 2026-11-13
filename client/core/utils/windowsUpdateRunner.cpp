@@ -1,7 +1,9 @@
 #include "windowsUpdatePackage.h"
 
-#include <shellapi.h>
+// clang-format off
 #include <windows.h>
+#include <shellapi.h>
+// clang-format on
 
 #include <cwchar>
 #include <filesystem>
@@ -40,12 +42,12 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
     }
     const std::filesystem::path package(argv[1]);
     const std::wstring version(argv[2]);
-    const std::wstring client(argv[3]);
+    const std::filesystem::path client(argv[3]);
     wchar_t *end = nullptr;
     const DWORD pid = wcstoul(argv[4], &end, 10);
     const bool validPid = pid != 0 && end && *end == L'\0';
     LocalFree(argv);
-    if (!validPid || !package.is_absolute() || package.extension() != L".msi") {
+    if (!validPid || !package.is_absolute() || package.extension() != L".msi" || !client.is_absolute()) {
         return 1;
     }
     HANDLE parent = OpenProcess(SYNCHRONIZE, FALSE, pid);
@@ -72,8 +74,9 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
             wchar_t system[MAX_PATH] { };
             const UINT length = GetSystemDirectoryW(system, MAX_PATH);
             if (length > 0 && length < MAX_PATH) {
-                run(std::wstring(system) + L"\\msiexec.exe", L"/i \"" + package.wstring() + L"\" /passive /norestart",
-                    &result);
+                const auto arguments = L"/i \"" + package.wstring() + L"\" /passive /norestart INSTALL_ROOT=\""
+                        + client.parent_path().wstring() + L"\"";
+                run(std::wstring(system) + L"\\msiexec.exe", arguments, &result);
             }
         }
         CloseHandle(locked);
@@ -88,7 +91,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
                 L"AWG-Connect", MB_OK | MB_ICONWARNING);
     }
     if (result != ERROR_SUCCESS_REBOOT_REQUIRED && result != ERROR_SUCCESS_REBOOT_INITIATED) {
-        run(client, L"");
+        run(client.wstring(), L"");
     }
     return result == ERROR_SUCCESS ? 0 : 1;
 }

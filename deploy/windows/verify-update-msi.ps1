@@ -20,7 +20,7 @@ function Get-MsiValue([string]$Query) {
 if ((Get-MsiValue "SELECT ``Value`` FROM ``Property`` WHERE ``Property`` = 'ProductVersion'") -ne $version) {
     throw 'MSI version does not match its filename'
 }
-if ((Get-MsiValue "SELECT ``Value`` FROM ``Property`` WHERE ``Property`` = 'UpgradeCode'") -ne '{2D55AC62-96D6-4692-8C05-0D85BBF95485}') {
+if ((Get-MsiValue "SELECT ``Value`` FROM ``Property`` WHERE ``Property`` = 'UpgradeCode'") -ne '{A7E8403F-F7E7-46BB-A631-6D5518DB7C05}') {
     throw 'Unexpected MSI upgrade family'
 }
 $initialize = [int](Get-MsiValue "SELECT ``Sequence`` FROM ``InstallExecuteSequence`` WHERE ``Action`` = 'InstallInitialize'")

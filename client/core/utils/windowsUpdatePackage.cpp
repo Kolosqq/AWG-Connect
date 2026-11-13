@@ -4,18 +4,20 @@
 #include <cwchar>
 #include <cwctype>
 
+// clang-format off
+#include <windows.h>
 #include <msi.h>
 #include <msiquery.h>
-#include <softpub.h>
 #include <wincrypt.h>
-#include <windows.h>
 #include <wintrust.h>
+#include <softpub.h>
+// clang-format on
 
 #include "version.h"
 
 namespace
 {
-    constexpr wchar_t upgradeCode[] = L"{2D55AC62-96D6-4692-8C05-0D85BBF95485}";
+    constexpr wchar_t upgradeCode[] = L"{A7E8403F-F7E7-46BB-A631-6D5518DB7C05}";
 
     std::wstring property(MSIHANDLE database, const wchar_t *query)
     {
