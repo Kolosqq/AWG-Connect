@@ -12,6 +12,7 @@ namespace appSelection
         QString error;
     };
 
+    QString localPath(const QString &path);
     ResolvedApps resolve(const QStringList &paths);
 }
 

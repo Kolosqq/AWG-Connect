@@ -57,7 +57,11 @@ WindowsDaemon::~WindowsDaemon() {
 bool WindowsDaemon::activate(const InterfaceConfig &config)
 {
     m_appSelectionTimer.stop();
-    const auto selection = appSelection::resolve(config.m_vpnDisabledApps);
+    QStringList paths;
+    for (const auto &entry : config.m_vpnDisabledApps) {
+        paths.append(appSelection::localPath(entry));
+    }
+    const auto selection = appSelection::resolve(paths);
     if (!selection.error.isEmpty()) {
         emit activationFailure();
         emit backendFailure(DaemonError::ERROR_SPLIT_TUNNEL_EXCLUDE_FAILURE);
@@ -67,7 +71,7 @@ bool WindowsDaemon::activate(const InterfaceConfig &config)
     resolved.m_vpnDisabledApps = selection.executables;
     if (config.m_positiveSplitTunnel) {
         if ((!m_connections.isEmpty() && !deactivate(false))
-            || !KillSwitch::instance()->beginPositiveConnection(config.m_vpnDisabledApps, config.m_killSwitchEnabled)) {
+            || !KillSwitch::instance()->beginPositiveConnection(paths, config.m_killSwitchEnabled)) {
             emit activationFailure();
             emit backendFailure(DaemonError::ERROR_SPLIT_TUNNEL_EXCLUDE_FAILURE);
             return false;
@@ -83,8 +87,8 @@ bool WindowsDaemon::activate(const InterfaceConfig &config)
         }
     }
     if (activated) {
-        m_appSelection = config.m_vpnDisabledApps;
-        if (!selection.directories.isEmpty()) {
+        m_appSelection = paths;
+        if (!paths.isEmpty()) {
             m_appSelectionTimer.start();
         }
     }

@@ -7,6 +7,7 @@
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QUrl>
 #include <QUuid>
 
 #include "core/utils/appSelection.h"
@@ -111,9 +112,17 @@ private slots:
         result = appSelection::resolve({ folder });
         QVERIFY(result.error.isEmpty());
         QVERIFY(!result.executables.contains(first));
-        result = appSelection::resolve({ nested, root.filePath("missing/") });
-        QVERIFY(!result.error.isEmpty());
-        QVERIFY(result.executables.isEmpty());
+        const QString missingFolder = root.filePath("missing/");
+        result = appSelection::resolve({ QUrl::fromLocalFile(nested).toString(), first, missingFolder });
+        QVERIFY(result.error.isEmpty());
+        QCOMPARE(result.executables, QStringList { nested });
+        QCOMPARE(result.directories, QStringList { missingFolder });
+        QVERIFY(root.mkpath("missing"));
+        QFile restored(root.filePath("missing/restored.exe"));
+        QVERIFY(restored.open(QIODevice::WriteOnly));
+        restored.close();
+        result = appSelection::resolve({ missingFolder });
+        QCOMPARE(result.executables, QStringList { restored.fileName() });
         QVERIFY(root.mkdir("empty"));
         result = appSelection::resolve({ root.filePath("empty/") });
         QVERIFY(result.error.isEmpty());

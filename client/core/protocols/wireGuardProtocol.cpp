@@ -15,6 +15,7 @@ WireguardProtocol::WireguardProtocol(const QJsonObject &configuration, QObject *
     m_impl.reset(new LocalSocketController());
     connect(m_impl.get(), &ControllerImpl::positiveSplitTunnelUnsupported, this, [this]() {
         setLastError(ErrorCode::PositiveSplitTunnelServiceError);
+        setConnectionState(Vpn::ConnectionState::Error);
         emit protocolError(ErrorCode::PositiveSplitTunnelServiceError);
     });
     connect(m_impl.get(), &ControllerImpl::connected, this,

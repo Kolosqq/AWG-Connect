@@ -31,6 +31,7 @@
     #include "platforms/ios/ios_controller.h"
 #endif
 
+#include "core/utils/appSelection.h"
 #include "core/utils/networkUtilities.h"
 #include "core/utils/serverConfigUtils.h"
 #include "vpnConnection.h"
@@ -84,19 +85,20 @@ bool VpnConnection::synchronizeAppPolicy(bool restartTunnel)
     if (!m_appSettingsRepository) {
         return false;
     }
+    const bool positive = m_appSettingsRepository->isAppsSplitTunnelingEnabled()
+            && m_appSettingsRepository->appsRouteMode() == AppsRouteMode::VpnOnlyForwardApps;
     QJsonArray apps;
-    for (const auto &app : m_appSettingsRepository->vpnApps(AppsRouteMode::VpnOnlyForwardApps)) {
-        apps.append(app.appPath);
+    if (positive) {
+        for (const auto &app : m_appSettingsRepository->vpnApps(AppsRouteMode::VpnOnlyForwardApps)) {
+            apps.append(appSelection::localPath(app.appPath.isEmpty() ? app.packageName : app.appPath));
+        }
     }
-    const QJsonObject policy {
-        { "positive",
-          m_appSettingsRepository->isAppsSplitTunnelingEnabled()
-                  && m_appSettingsRepository->appsRouteMode() == AppsRouteMode::VpnOnlyForwardApps },
-        { "strict",
-          m_appSettingsRepository->isKillSwitchEnabled() && m_appSettingsRepository->isStrictKillSwitchEnabled() },
-        { "soft", m_appSettingsRepository->isKillSwitchEnabled() },
-        { "apps", apps }
-    };
+    const QJsonObject policy { { "positive", positive },
+                               { "strict",
+                                 m_appSettingsRepository->isKillSwitchEnabled()
+                                         && m_appSettingsRepository->isStrictKillSwitchEnabled() },
+                               { "soft", m_appSettingsRepository->isKillSwitchEnabled() },
+                               { "apps", apps } };
     return IpcClient::withInterface(
             [&policy, restartTunnel](QSharedPointer<IpcInterfaceReplica> iface) {
                 auto reply = restartTunnel ? iface->restartAppPolicy(policy) : iface->configureAppPolicy(policy);
@@ -572,7 +574,12 @@ void VpnConnection::appendSplitTunnelingConfig()
 
         auto apps = m_appSettingsRepository->vpnApps(appsRouteMode);
         for (const auto &app : apps) {
-            appsJsonArray.append(app.appPath.isEmpty() ? app.packageName : app.appPath);
+            const auto path = app.appPath.isEmpty() ? app.packageName : app.appPath;
+#ifdef Q_OS_WIN
+            appsJsonArray.append(appSelection::localPath(path));
+#else
+            appsJsonArray.append(path);
+#endif
         }
 
         if (appsJsonArray.isEmpty()

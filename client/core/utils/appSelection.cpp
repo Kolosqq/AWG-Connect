@@ -5,6 +5,14 @@
 #include <QFileInfo>
 #include <QObject>
 #include <QSet>
+#include <QUrl>
+
+QString appSelection::localPath(const QString &path)
+{
+    const QString trimmed = path.trimmed();
+    return QDir::fromNativeSeparators(trimmed.startsWith("file:", Qt::CaseInsensitive) ? QUrl(trimmed).toLocalFile()
+                                                                                       : trimmed);
+}
 
 appSelection::ResolvedApps appSelection::resolve(const QStringList &paths)
 {
@@ -17,8 +25,15 @@ appSelection::ResolvedApps appSelection::resolve(const QStringList &paths)
             result.executables.append(path);
         }
     };
-    for (const QString &path : paths) {
+    for (const QString &entry : paths) {
+        const QString path = localPath(entry);
         const QFileInfo info(path);
+        if (info.isAbsolute() && !info.exists()) {
+            if (path.endsWith('/')) {
+                result.directories.append(path);
+            }
+            continue;
+        }
         if (info.isDir()) {
             result.directories.append(QDir::fromNativeSeparators(info.absoluteFilePath()));
             QDirIterator files(info.absoluteFilePath(), QDir::Files | QDir::NoSymLinks | QDir::Hidden | QDir::System,
