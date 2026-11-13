@@ -244,8 +244,12 @@ PageType {
         id: installedAppDrawer
     }
 
+    RunningAppsDialog {
+        id: runningAppsDialog
+    }
+
     AppSelectionDrawer {
         id: appSelectionDrawer
-        onRunningAppsRequested: installedAppDrawer.open()
+        onRunningAppsRequested: runningAppsDialog.open()
     }
 }

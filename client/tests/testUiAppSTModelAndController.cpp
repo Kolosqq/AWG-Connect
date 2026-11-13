@@ -64,7 +64,7 @@ private slots:
 #ifdef Q_OS_WIN
         QVERIFY(selector->property("enabled").toBool());
         auto choices = page->findChild<QObject *>("appSelectionDrawer");
-        auto processes = page->findChild<QObject *>("installedAppsDrawer");
+        auto processes = page->findChild<QObject *>("runningAppsDialog");
         QVERIFY(choices);
         QVERIFY(processes);
         QVERIFY(QMetaObject::invokeMethod(choices, "open"));

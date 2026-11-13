@@ -43,7 +43,12 @@ QVariant InstalledAppsModel::data(const QModelIndex &index, int role) const
         return appName;
     }
     case AppIconRole: {
-        return m_installedApps.at(index.row()).toObject().value("package").toString();
+        const auto app = m_installedApps.at(index.row()).toObject().value("package").toString();
+#ifdef Q_OS_WIN
+        return QString::fromLatin1(app.toUtf8().toBase64(QByteArray::Base64UrlEncoding | QByteArray::OmitTrailingEquals));
+#else
+        return app;
+#endif
     }
     case PackageNameRole: {
         return m_installedApps.at(index.row()).toObject().value("package");

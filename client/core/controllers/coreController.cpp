@@ -13,8 +13,11 @@
 #include "secureQSettings.h"
 #include "core/utils/appUiConfig.h"
 
-#if defined(Q_OS_ANDROID)
+#if defined(Q_OS_ANDROID) || defined(Q_OS_WIN)
     #include "core/utils/installedAppsImageProvider.h"
+#endif
+
+#if defined(Q_OS_ANDROID)
     #include "platforms/android/android_controller.h"
 #endif
 
@@ -36,6 +39,11 @@ CoreController::CoreController(const QSharedPointer<VpnConnection> &vpnConnectio
     initModels();
     initControllers();
     initSignalHandlers();
+#ifdef Q_OS_WIN
+    if (m_engine) {
+        m_engine->addImageProvider(QLatin1String("installedAppImage"), new InstalledAppsImageProvider);
+    }
+#endif
 
     if (!skipPlatformControllerInit) {
         initAndroidController();
