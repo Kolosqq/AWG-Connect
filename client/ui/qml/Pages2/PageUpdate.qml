@@ -28,7 +28,8 @@ PageType {
             if (UpdateController.updateState === UpdateState.ReadyToInstall) {
                 PageController.showNotificationMessage(qsTr("Done. Install the update"))
             } else if (UpdateController.updateState === UpdateState.DownloadError) {
-                PageController.showNotificationMessage(qsTr("Download failed. Download manually from amnezia.org"))
+                PageController.showNotificationMessage(Qt.platform.os === "windows" ? qsTr("The update could not be downloaded or verified.")
+                                                         : qsTr("Download failed. Download manually from amnezia.org"))
             }
         }
     }
@@ -162,7 +163,15 @@ PageType {
                 H1TextType {
                     Layout.fillWidth: true
 
-                    text: qsTr("New version available")
+                    text: UpdateController.upstreamNotice ? qsTr("New AmneziaVPN version") : qsTr("New version available")
+                }
+
+                NotificationType {
+                    Layout.fillWidth: true
+                    visible: Qt.platform.os === "windows" && !UpdateController.canInstall
+                    text: UpdateController.upstreamNotice
+                          ? qsTr("You are using the AWG-Connect fork. Install updates from AWG-Connect Releases.")
+                          : qsTr("Automatic installation requires a signed AWG-Connect MSI and an existing MSI installation.")
                 }
 
                 H3TextType {
@@ -172,6 +181,7 @@ PageType {
 
                     color: AmneziaStyle.color.textTertiary
 
+                    textFormat: Text.PlainText
                     text: root.hasChangelog ? UpdateController.description : qsTr("No release notes yet")
                 }
 
@@ -212,7 +222,14 @@ PageType {
         filled: true
 
         ButtonType {
+            visible: Qt.platform.os === "windows"
+            text: qsTr("Later")
+            onClicked: PageController.escapePressed()
+        }
+
+        ButtonType {
             id: updateButton
+            visible: UpdateController.canInstall
 
             Layout.fillWidth: true
 
@@ -227,7 +244,9 @@ PageType {
                     return qsTr("Update app")
                 }
                 switch (UpdateController.updateState) {
-                case UpdateState.Downloading: return qsTr("Downloading update...")
+                case UpdateState.Downloading:
+                    return Qt.platform.os === "windows" ? qsTr("Downloading update… %1%").arg(UpdateController.progress)
+                                                        : qsTr("Downloading update...")
                 case UpdateState.ReadyToInstall: return qsTr("Install update")
                 case UpdateState.DownloadError: return qsTr("Retry")
                 default: return qsTr("Update app")

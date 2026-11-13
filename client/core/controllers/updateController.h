@@ -4,6 +4,8 @@
 #include <QObject>
 #include <QQmlEngine>
 #include <QStringList>
+#include <QTemporaryDir>
+#include <memory>
 
 #include "core/repositories/secureAppSettingsRepository.h"
 
@@ -41,6 +43,9 @@ public:
     UpdateState::State getUpdateState() const;
     bool isStoreUpdate() const;
     bool isUpdateCheckRunning() const;
+    bool canInstall() const;
+    bool isUpstreamNotice() const;
+    int progress() const;
 
 public slots:
     void checkForUpdates();
@@ -49,6 +54,7 @@ public slots:
 
 signals:
     void updateFound();
+    void progressChanged();
     void updateNotFound();
     void updateCheckFailed();
     void updateStateChanged();
@@ -76,8 +82,16 @@ private:
     UpdateState::State m_updateState = UpdateState::State::Idle;
     bool m_updateCheckRunning = false;
 
-#if defined(Q_OS_WINDOWS)
-    int runWindowsInstaller(const QString &installerPath);
+#if defined(Q_OS_WIN)
+    void checkGithubRelease(bool upstream);
+    void downloadWindowsPackage();
+    void installWindowsPackage();
+    std::unique_ptr<QTemporaryDir> m_staging;
+    QString m_packageUrl;
+    QString m_packagePath;
+    qint64 m_packageSize = 0;
+    int m_progress = 0;
+    bool m_upstreamNotice = false;
 #elif defined(Q_OS_MACOS) && !defined(MACOS_NE)
     int runMacInstaller(const QString &installerPath);
 #elif defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)

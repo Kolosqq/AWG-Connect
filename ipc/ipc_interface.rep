@@ -33,6 +33,7 @@ class IpcInterface
     SLOT( bool refreshKillSwitch( bool enabled ) );
     SLOT( bool configureAppPolicy( const QJsonObject &policy ) );
     SLOT( bool restartAppPolicy( const QJsonObject &policy ) );
+    SLOT( bool prepareForUpdate() );
     SLOT( bool addKillSwitchAllowedRange( const QStringList ranges ) );
     SLOT( bool resetKillSwitchAllowedRange( const QStringList ranges ) );
     SLOT( bool enablePeerTraffic( const QJsonObject &configStr) );

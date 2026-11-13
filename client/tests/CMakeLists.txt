@@ -64,6 +64,10 @@ target_include_directories(test_common PUBLIC
 
 if(NOT ANDROID)
     if(WIN32)
+        add_executable(test_fork_update testForkUpdate.cpp ../core/utils/windowsUpdatePackage.cpp)
+        target_include_directories(test_fork_update PRIVATE .. ${CMAKE_CURRENT_BINARY_DIR}/..)
+        target_link_libraries(test_fork_update PRIVATE Qt6::Test wintrust crypt32 msi)
+        add_test(NAME ForkUpdateTest COMMAND test_fork_update)
         add_executable(test_windows_app_policy
             testWindowsAppPolicy.cpp
             ../daemon/daemon.cpp

@@ -183,6 +183,12 @@ endif()
 
 if(WIN32)
     set_target_properties(${PROJECT} PROPERTIES WIN32_EXECUTABLE TRUE)
+    add_executable(awg-update-runner WIN32 core/utils/windowsUpdateRunner.cpp core/utils/windowsUpdatePackage.cpp)
+    set_property(TARGET awg-update-runner PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    target_include_directories(awg-update-runner PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+    target_link_libraries(awg-update-runner PRIVATE wintrust crypt32 msi shell32 user32)
+    install(TARGETS awg-update-runner RUNTIME DESTINATION "." COMPONENT AmneziaVPN)
+
     configure_file(
         ${CMAKE_CURRENT_LIST_DIR}/platforms/windows/amneziavpn.rc.in
         ${CMAKE_CURRENT_BINARY_DIR}/amneziavpn.rc
@@ -190,6 +196,9 @@ if(WIN32)
 
     set(LIBS ${LIBS}
         user32
+        wintrust
+        crypt32
+        msi
         rasapi32
         shlwapi
         iphlpapi

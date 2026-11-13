@@ -19,7 +19,8 @@ PageType {
         target: UpdateController
 
         function onUpdateNotFound() {
-            PageController.showNotificationMessage(qsTr("You have the latest version of AmneziaVPN"))
+            PageController.showNotificationMessage(Qt.platform.os === "windows" ? qsTr("You have the latest version of AWG-Connect")
+                                                                       : qsTr("You have the latest version of AmneziaVPN"))
         }
 
         function onUpdateCheckFailed() {

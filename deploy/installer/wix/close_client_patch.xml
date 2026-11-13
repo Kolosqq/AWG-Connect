@@ -6,7 +6,8 @@
                 Id="CloseAmneziaClient"
                 Target="AmneziaVPN.exe"
                 Description="Closing AmneziaVPN client"
-                TerminateProcess="1"
+                CloseMessage="yes"
+                EndSessionMessage="yes"
                 RebootPrompt="no" />
     </CPackWiXFragment>
 </CPackWiXPatch>

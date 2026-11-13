@@ -37,7 +37,12 @@ SettingsController::SettingsController(SecureServersRepository* serversRepositor
       m_serversRepository(serversRepository),
       m_appSettingsRepository(appSettingsRepository)
 {
+#ifdef Q_OS_WIN
+    m_appVersion = QStringLiteral("AWG-Connect %1 · AmneziaVPN %2 (%3)")
+                           .arg(QStringLiteral(AWG_CONNECT_VERSION), QStringLiteral(APP_VERSION), GIT_COMMIT_HASH);
+#else
     m_appVersion = QString("%1 (%2, %3)").arg(QString(APP_VERSION), __DATE__, GIT_COMMIT_HASH);
+#endif
     m_isDevModeEnabled = m_appSettingsRepository->isDevGatewayEnv();
 }
 

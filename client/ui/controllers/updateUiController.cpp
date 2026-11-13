@@ -7,6 +7,7 @@ UpdateUiController::UpdateUiController(UpdateController* updateController, QObje
     : QObject(parent), m_updateController(updateController)
 {
     if (m_updateController) {
+        connect(m_updateController, &UpdateController::progressChanged, this, &UpdateUiController::progressChanged);
         connect(m_updateController, &UpdateController::updateFound, this, &UpdateUiController::updateFound);
         connect(m_updateController, &UpdateController::updateNotFound, this, &UpdateUiController::updateNotFound);
         connect(m_updateController, &UpdateController::updateCheckFailed, this, &UpdateUiController::updateCheckFailed);
@@ -75,6 +76,21 @@ bool UpdateUiController::isStoreUpdate() const
 bool UpdateUiController::isCheckRunning() const
 {
     return m_updateController ? m_updateController->isUpdateCheckRunning() : false;
+}
+
+bool UpdateUiController::canInstall() const
+{
+    return m_updateController && m_updateController->canInstall();
+}
+
+bool UpdateUiController::isUpstreamNotice() const
+{
+    return m_updateController && m_updateController->isUpstreamNotice();
+}
+
+int UpdateUiController::progress() const
+{
+    return m_updateController ? m_updateController->progress() : 0;
 }
 
 void UpdateUiController::checkForUpdates()

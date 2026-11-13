@@ -316,6 +316,15 @@ bool IpcServer::configureAppPolicy(const QJsonObject &policy)
 #endif
 }
 
+bool IpcServer::prepareForUpdate()
+{
+#ifdef Q_OS_WIN
+    return Daemon::instance()->deactivateManually();
+#else
+    return false;
+#endif
+}
+
 bool IpcServer::restartAppPolicy(const QJsonObject &policy)
 {
 #ifdef Q_OS_WIN

@@ -56,12 +56,15 @@ jobs:
           path: ~/.conan2
           key: windows-2022-conan-2.28-release-${{ hashFiles('recipes/**', 'conanfile.py', 'cmake/recipes_bootstrap.cmake') }}
       - name: Configure Release build
+        env:
+          AWG_UPDATE_SIGNER_SHA256: ${{ vars.AWG_UPDATE_SIGNER_SHA256 }}
         id: configure
         shell: cmd
         run: >-
           cmake -S . -B deploy/build -G Ninja -DCMAKE_BUILD_TYPE=Release
           "-DCMAKE_PREFIX_PATH=%QT_ROOT_DIR%" -DAMNEZIA_BUILD_TESTS=ON
           -DCONAN_INSTALL_BUILD_CONFIGURATIONS=Release
+          "-DAWG_UPDATE_SIGNER_SHA256=%AWG_UPDATE_SIGNER_SHA256%"
       - name: Cache native dependencies
         if: steps.conan-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
@@ -72,14 +75,14 @@ jobs:
         id: build
         run: >-
           cmake --build deploy/build --parallel 4 --target
-          AmneziaVPN AmneziaVPN-service test_positive_split_tunnel test_windows_build_readiness
+          AmneziaVPN AmneziaVPN-service awg-update-runner test_fork_update test_positive_split_tunnel test_windows_build_readiness
           test_settings_signals test_windows_app_policy test_ui_ip_model_and_controller
           test_ui_app_st_model_and_controller test_ui_allowed_dns_model_and_controller
       - name: Run settings and split tunneling regression tests
         shell: cmd
         run: >-
           ctest --test-dir deploy\build\client\tests -C Release
-          -R "^(SettingsSignalsTest|UiIpModelAndControllerTest|UiAppSTModelAndControllerTest|UiAllowedDnsModelAndControllerTest|PositiveSplitTunnelTest|WindowsBuildReadinessTest)$"
+          -R "^(SettingsSignalsTest|UiIpModelAndControllerTest|UiAppSTModelAndControllerTest|UiAllowedDnsModelAndControllerTest|ForkUpdateTest|PositiveSplitTunnelTest|WindowsBuildReadinessTest)$"
           --output-on-failure --no-tests=error --timeout 180
       - name: Verify app-scoped Kill Switch on isolated runner
         env:
@@ -104,6 +107,24 @@ jobs:
             Sort-Object Name -Descending | Select-Object -First 1
           if (-not $ifw) { throw 'Qt Installer Framework was not found' }
           cpack --config deploy/build/CPackConfig.cmake -G IFW -C Release -B deploy/build "-DQTIFWDIR=$($ifw.FullName)"
+      - name: Package Windows Installer candidate
+        shell: pwsh
+        run: |
+          dotnet tool install --global wix --version 4.0.6
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          foreach ($extension in 'UI','Util') {
+            wix extension add -g "WixToolset.${extension}.wixext/4.0.6"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          cpack --config deploy/build/CPackConfig.cmake -G WIX -C Release -B deploy/build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & deploy/windows/verify-update-msi.ps1 -BuildDirectory deploy/build
+      - name: Upload MSI candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-update-msi
+          path: deploy/build/AWG-Connect_*_windows_x64.msi
+          if-no-files-found: error
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
