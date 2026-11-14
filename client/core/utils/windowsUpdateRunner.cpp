@@ -45,16 +45,20 @@ int main()
         LocalFree(argv);
         return 1;
     }
-    const std::filesystem::path package(argv[1]);
+    std::filesystem::path msiPath(argv[1]);
     const std::wstring version(argv[2]);
-    const std::filesystem::path client(argv[3]);
+    std::filesystem::path clientPath(argv[3]);
     wchar_t *end = nullptr;
     const DWORD pid = wcstoul(argv[4], &end, 10);
     const bool validPid = pid != 0 && end && *end == L'\0';
     LocalFree(argv);
-    if (!validPid || !package.is_absolute() || package.extension() != L".msi" || !client.is_absolute()) {
+    if (!validPid || !msiPath.is_absolute() || msiPath.extension() != L".msi" || !clientPath.is_absolute()) {
         return 1;
     }
+    // Windows Installer cannot open the Qt path with forward slashes.
+    msiPath.make_preferred();
+    clientPath.make_preferred();
+    const auto logPath = msiPath.parent_path() / L"installer.log";
     HANDLE parent = OpenProcess(SYNCHRONIZE, FALSE, pid);
     if (parent) {
         const auto status = WaitForSingleObject(parent, 60000);
@@ -70,34 +74,34 @@ int main()
         return 1;
     }
     DWORD result = ERROR_INSTALL_FAILURE;
-    const HANDLE locked = CreateFileW(package.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
+    const HANDLE locked = CreateFileW(msiPath.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
                                       FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
     if (locked != INVALID_HANDLE_VALUE) {
         BY_HANDLE_FILE_INFORMATION info { };
         if (GetFileInformationByHandle(locked, &info) && !(info.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
-            && windowsUpdate::verifyPackage(package.wstring(), version)) {
+            && windowsUpdate::verifyPackage(msiPath.wstring(), version)) {
             wchar_t system[MAX_PATH] { };
             const UINT length = GetSystemDirectoryW(system, MAX_PATH);
             if (length > 0 && length < MAX_PATH) {
-                const auto arguments = L"/i \"" + package.wstring() + L"\" /passive /norestart INSTALL_ROOT=\""
-                        + client.parent_path().wstring() + L"\"";
+                const auto arguments = L"/i \"" + msiPath.wstring() + L"\" /passive /norestart /L*v \""
+                        + logPath.wstring() + L"\" INSTALL_ROOT=\"" + clientPath.parent_path().wstring() + L"\"";
                 run(std::wstring(system) + L"\\msiexec.exe", arguments, &result);
             }
         }
         CloseHandle(locked);
     }
-    std::ofstream(package.parent_path() / "result.txt") << result << '\n';
+    const auto resultPath = msiPath.parent_path() / L"result.txt";
+    std::ofstream(resultPath) << result << '\n';
     std::error_code cleanupError;
-    std::filesystem::remove(package, cleanupError);
-    std::filesystem::remove(package.wstring() + L".sig", cleanupError);
+    std::filesystem::remove(msiPath, cleanupError);
+    std::filesystem::remove(msiPath.wstring() + L".sig", cleanupError);
     if (result != ERROR_SUCCESS && result != ERROR_SUCCESS_REBOOT_REQUIRED && result != ERROR_SUCCESS_REBOOT_INITIATED) {
-        MessageBoxW(
-                nullptr,
-                L"AWG-Connect update did not complete. Windows Installer result is in result.txt in the update folder.",
-                L"AWG-Connect", MB_OK | MB_ICONWARNING);
+        const auto message = L"AWG-Connect update did not complete. Error code: " + std::to_wstring(result)
+                + L".\n\nDiagnostic files:\n" + resultPath.wstring() + L"\n" + logPath.wstring();
+        MessageBoxW(nullptr, message.c_str(), L"AWG-Connect", MB_OK | MB_ICONWARNING);
     }
     if (result != ERROR_SUCCESS_REBOOT_REQUIRED && result != ERROR_SUCCESS_REBOOT_INITIATED) {
-        run(client.wstring(), L"");
+        run(clientPath.wstring(), L"");
     }
     return result == ERROR_SUCCESS ? 0 : 1;
 }
