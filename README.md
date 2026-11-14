@@ -1,6 +1,6 @@
 # AWG-Connect
 
-[Русский](README_RU.md) · **[Download 1.1.1 for Windows x64](https://github.com/Kolosqq/AWG-Connect/releases/download/v1.1.1/AWG-Connect_1.1.1_windows_x64.exe)**
+[Русский](README_RU.md) · **[Download 1.1.2 MSI for Windows x64](https://github.com/Kolosqq/AWG-Connect/releases/download/v1.1.2/AWG-Connect_1.1.2_windows_x64.msi)**
 
 A Windows fork of AmneziaVPN with positive split tunneling for AmneziaWG and WireGuard. Selected apps use the VPN. Other apps and system DNS connect directly.
 
@@ -10,6 +10,6 @@ A Windows fork of AmneziaVPN with positive split tunneling for AmneziaWG and Wir
 
 Turn off site split tunneling and use IPv4 default AllowedIPs (`0.0.0.0/0`). An empty list sends all applications directly.
 
-Release 1.1.1 is based on AmneziaVPN 5.1.0.6. The installer replaces an existing AmneziaVPN installation and retains its application and service names. The installer is unsigned. The bundled driver is signed.
+Release 1.1.2 is based on AmneziaVPN 5.1.0.6. When switching from the old EXE installer, uninstall the old version before installing the MSI. If you have the 1.1.1 MSI, use **Settings → About → Check for updates**. AWG-Connect verifies the MSI using a detached signature. Windows may display an unknown publisher prompt.
 
-[Release notes and checksum](https://github.com/Kolosqq/AWG-Connect/releases/tag/v1.1.1) · [Upstream AmneziaVPN](https://github.com/amnezia-vpn/amnezia-client) · [GPLv3](LICENSE)
+[Release notes and checksum](https://github.com/Kolosqq/AWG-Connect/releases/tag/v1.1.2) · [Upstream AmneziaVPN](https://github.com/amnezia-vpn/amnezia-client) · [GPLv3](LICENSE)
