@@ -4,7 +4,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(PROJECT AmneziaVPN)
-set(AWG_CONNECT_VERSION "1.1.3" CACHE STRING "AWG-Connect release version")
+set(AWG_CONNECT_VERSION "1.1.4" CACHE STRING "AWG-Connect release version")
 if(NOT AWG_CONNECT_VERSION MATCHES "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$")
     message(FATAL_ERROR "AWG_CONNECT_VERSION must be a stable SemVer version")
 endif()
