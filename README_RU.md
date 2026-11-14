@@ -1,6 +1,6 @@
 # AWG-Connect
 
-[English](README.md) · **[Скачать MSI 1.1.2 для Windows x64](https://github.com/Kolosqq/AWG-Connect/releases/download/v1.1.2/AWG-Connect_1.1.2_windows_x64.msi)**
+[English](README.md) · **[Скачать MSI 1.1.3 для Windows x64](https://github.com/Kolosqq/AWG-Connect/releases/download/v1.1.3/AWG-Connect_1.1.3_windows_x64.msi)**
 
 Форк AmneziaVPN для Windows с позитивным раздельным туннелированием для AmneziaWG и WireGuard. Выбранные приложения идут через VPN. Остальные приложения и системный DNS работают напрямую.
 
@@ -10,6 +10,6 @@
 
 Выключите раздельное туннелирование по сайтам и используйте IPv4 AllowedIPs `0.0.0.0/0`. При пустом списке все приложения работают напрямую.
 
-Релиз 1.1.2 основан на AmneziaVPN 5.1.0.6. При переходе со старого EXE-установщика сначала удалите старую версию, затем установите MSI. Если у вас уже стоит MSI 1.1.1, выберите **Настройки → О приложении → Проверить обновления**. AWG-Connect проверяет MSI по отдельной подписи. Windows может отобразить сообщение о неизвестном издателе.
+Релиз 1.1.3 основан на AmneziaVPN 5.1.0.6. Если у вас стоит MSI 1.1.1 или 1.1.2, один раз запустите MSI 1.1.3 поверх текущей версии, чтобы получить исправление обновлятора. При переходе со старого EXE-установщика сначала удалите старую версию, затем установите MSI. AWG-Connect проверяет обновления по отдельной подписи. При ручной установке Windows может отобразить сообщение о неизвестном издателе.
 
-[Описание релиза и контрольная сумма](https://github.com/Kolosqq/AWG-Connect/releases/tag/v1.1.2) · [Оригинальный AmneziaVPN](https://github.com/amnezia-vpn/amnezia-client) · [GPLv3](LICENSE)
+[Описание релиза и контрольная сумма](https://github.com/Kolosqq/AWG-Connect/releases/tag/v1.1.3) · [Оригинальный AmneziaVPN](https://github.com/amnezia-vpn/amnezia-client) · [GPLv3](LICENSE)
