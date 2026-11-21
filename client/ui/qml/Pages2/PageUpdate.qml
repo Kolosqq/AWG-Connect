@@ -21,6 +21,18 @@ PageType {
                                          || UpdateController.improvements.length > 0
                                          || UpdateController.bugFixes.length > 0
 
+    readonly property bool viewingUpstreamNotice: UpdateController.upstreamNotice
+                                                  && StackView.status === StackView.Active
+                                                  && Window.window !== null
+                                                  && Window.window.visible && Window.window.active
+                                                  && Window.window.visibility !== Window.Minimized
+
+    onViewingUpstreamNoticeChanged: {
+        if (viewingUpstreamNotice) {
+            UpdateController.markUpstreamNoticeAsRead()
+        }
+    }
+
     Connections {
         target: UpdateController
 

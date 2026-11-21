@@ -329,7 +329,7 @@ void CoreController::checkForAppUpdates()
     if (!m_appSettingsRepository->isAutoUpdateCheckEnabled()) {
         return;
     }
-    m_updateController->checkForUpdates();
+    m_updateController->checkForUpdates(/* automatic */ true);
 }
 
 void CoreController::updateTranslator(const QLocale &locale)

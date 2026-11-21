@@ -42,6 +42,7 @@ public:
 
 public slots:
     void checkForUpdates();
+    void markUpstreamNoticeAsRead();
     void update();
     void install();
     void retry();

@@ -460,6 +460,16 @@ void SecureAppSettingsRepository::setAutoUpdateCheckEnabled(bool enabled)
     setValue("Conf/autoUpdateCheck", enabled);
 }
 
+QString SecureAppSettingsRepository::latestReadUpstreamVersion() const
+{
+    return value("Conf/latestReadUpstreamVersion").toString();
+}
+
+void SecureAppSettingsRepository::setLatestReadUpstreamVersion(const QString &version)
+{
+    setValue("Conf/latestReadUpstreamVersion", version);
+}
+
 bool SecureAppSettingsRepository::isSaveLogs() const
 {
     return value("Conf/saveLogs", false).toBool();

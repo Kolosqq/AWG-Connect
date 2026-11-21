@@ -100,6 +100,13 @@ void UpdateUiController::checkForUpdates()
     }
 }
 
+void UpdateUiController::markUpstreamNoticeAsRead()
+{
+    if (m_updateController) {
+        m_updateController->markUpstreamNoticeAsRead();
+    }
+}
+
 void UpdateUiController::update()
 {
     if (m_updateController) {

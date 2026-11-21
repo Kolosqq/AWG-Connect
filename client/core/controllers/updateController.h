@@ -45,10 +45,11 @@ public:
     bool isUpdateCheckRunning() const;
     bool canInstall() const;
     bool isUpstreamNotice() const;
+    void markUpstreamNoticeAsRead();
     int progress() const;
 
 public slots:
-    void checkForUpdates();
+    void checkForUpdates(bool automatic = false);
     void startUpdate();
     void installUpdate();
 
@@ -83,7 +84,7 @@ private:
     bool m_updateCheckRunning = false;
 
 #if defined(Q_OS_WIN)
-    void checkGithubRelease(bool upstream);
+    void checkGithubRelease(bool upstream, bool automatic);
     void downloadWindowsPackage();
     void downloadWindowsSignature();
     void installWindowsPackage();

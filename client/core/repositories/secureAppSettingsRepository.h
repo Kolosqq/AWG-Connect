@@ -89,6 +89,8 @@ public:
 
     bool isAutoUpdateCheckEnabled() const;
     void setAutoUpdateCheckEnabled(bool enabled);
+    QString latestReadUpstreamVersion() const;
+    void setLatestReadUpstreamVersion(const QString &version);
     bool isSaveLogs() const;
     void setSaveLogs(bool enabled);
     QDateTime getLogEnableDate() const;

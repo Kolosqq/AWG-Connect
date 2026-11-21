@@ -141,7 +141,7 @@ void UpdateController::setUpdateCheckRunning(bool running)
     emit updateCheckRunningChanged();
 }
 
-void UpdateController::checkForUpdates()
+void UpdateController::checkForUpdates([[maybe_unused]] bool automatic)
 {
 #if !CLIENT_ENABLE_APP_UPDATES
     return;
@@ -156,7 +156,7 @@ void UpdateController::checkForUpdates()
     }
     setUpdateCheckRunning(true);
 #ifdef Q_OS_WIN
-    checkGithubRelease(false);
+    checkGithubRelease(false, automatic);
 #else
     auto gatewayController = QSharedPointer<GatewayController>::create(m_appSettingsRepository->getGatewayEndpoint(),
                                                                        m_appSettingsRepository->isDevGatewayEnv(),
@@ -422,6 +422,15 @@ bool UpdateController::isUpstreamNotice() const
 #endif
 }
 
+void UpdateController::markUpstreamNoticeAsRead()
+{
+    if (isUpstreamNotice() && m_appSettingsRepository
+        && QVersionNumber::fromString(m_version)
+                > QVersionNumber::fromString(m_appSettingsRepository->latestReadUpstreamVersion())) {
+        m_appSettingsRepository->setLatestReadUpstreamVersion(m_version);
+    }
+}
+
 int UpdateController::progress() const
 {
 #ifdef Q_OS_WIN
@@ -432,7 +441,7 @@ int UpdateController::progress() const
 }
 
 #ifdef Q_OS_WIN
-void UpdateController::checkGithubRelease(bool upstream)
+void UpdateController::checkGithubRelease(bool upstream, bool automatic)
 {
     const QString repository =
             upstream ? QStringLiteral("amnezia-vpn/amnezia-client") : QStringLiteral("Kolosqq/AWG-Connect");
@@ -446,7 +455,7 @@ void UpdateController::checkGithubRelease(bool upstream)
             reply->abort();
         }
     });
-    connect(reply, &QNetworkReply::finished, this, [this, reply, upstream, repository] {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, upstream, automatic, repository] {
         reply->deleteLater();
         QJsonParseError error;
         const auto release = QJsonDocument::fromJson(reply->readAll(), &error).object();
@@ -470,11 +479,16 @@ void UpdateController::checkGithubRelease(bool upstream)
         }
         if (version <= installed) {
             if (!upstream) {
-                checkGithubRelease(true);
+                checkGithubRelease(true, automatic);
             } else {
                 setUpdateCheckRunning(false);
                 emit updateNotFound();
             }
+            return;
+        }
+        if (upstream && automatic
+            && version <= QVersionNumber::fromString(m_appSettingsRepository->latestReadUpstreamVersion())) {
+            setUpdateCheckRunning(false);
             return;
         }
 
