@@ -1,10 +1,13 @@
 #ifndef UPDATECONTROLLER_H
 #define UPDATECONTROLLER_H
 
+#include <QJsonObject>
+#include <QMap>
 #include <QObject>
 #include <QQmlEngine>
 #include <QStringList>
 #include <QTemporaryDir>
+#include <QVersionNumber>
 #include <memory>
 
 #include "core/repositories/secureAppSettingsRepository.h"
@@ -46,6 +49,11 @@ public:
     bool canInstall() const;
     bool isUpstreamNotice() const;
     void markUpstreamNoticeAsRead();
+    bool isPreviousVersion() const;
+    QStringList previousVersions() const;
+    void checkPreviousVersions();
+    void selectPreviousVersion(const QString &version);
+    void downloadPreviousVersion(const QString &destination);
     int progress() const;
 
 public slots:
@@ -60,6 +68,8 @@ signals:
     void updateCheckFailed();
     void updateStateChanged();
     void updateCheckRunningChanged();
+    void previousVersionsFound();
+    void previousVersionSaved();
 
 private:
     void setUpdateState(UpdateState::State state);
@@ -85,7 +95,8 @@ private:
 
 #if defined(Q_OS_WIN)
     void checkGithubRelease(bool upstream, bool automatic);
-    void downloadWindowsPackage();
+    void showWindowsRelease(const QJsonObject &release, const QString &version, bool upstream, bool previous);
+    void downloadWindowsPackage(const QString &destination = { });
     void downloadWindowsSignature();
     void installWindowsPackage();
     std::unique_ptr<QTemporaryDir> m_staging;
@@ -94,6 +105,9 @@ private:
     qint64 m_packageSize = 0;
     int m_progress = 0;
     bool m_upstreamNotice = false;
+    bool m_previousVersion = false;
+    QMap<QVersionNumber, QJsonObject> m_previousReleases;
+    QString m_previousPackageDestination;
 #elif defined(Q_OS_MACOS) && !defined(MACOS_NE)
     int runMacInstaller(const QString &installerPath);
 #elif defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)

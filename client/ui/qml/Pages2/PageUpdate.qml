@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtCore
 import QtQuick.Layouts
 import QtQuick.Effects
 
@@ -43,6 +44,10 @@ PageType {
                 PageController.showNotificationMessage(Qt.platform.os === "windows" ? qsTr("The update could not be downloaded or verified.")
                                                          : qsTr("Download failed. Download manually from amnezia.org"))
             }
+        }
+
+        function onPreviousVersionSaved() {
+            PageController.showNotificationMessage(qsTr("Installer saved"))
         }
     }
 
@@ -175,15 +180,25 @@ PageType {
                 H1TextType {
                     Layout.fillWidth: true
 
-                    text: UpdateController.upstreamNotice ? qsTr("New AmneziaVPN version") : qsTr("New version available")
+                    text: {
+                        if (UpdateController.previousVersion) {
+                            return qsTr("Previous version of AWG-Connect")
+                        }
+                        return UpdateController.upstreamNotice ? qsTr("New AmneziaVPN version") : qsTr("New version available")
+                    }
                 }
 
                 NotificationType {
                     Layout.fillWidth: true
                     visible: Qt.platform.os === "windows" && !UpdateController.canInstall
-                    text: UpdateController.upstreamNotice
-                          ? qsTr("You are using the AWG-Connect fork. Install updates from AWG-Connect Releases.")
-                          : qsTr("Automatic installation requires an AWG-Connect MSI with a matching update signature and an existing MSI installation.")
+                    text: {
+                        if (UpdateController.previousVersion) {
+                            return qsTr("Save the installer and back up your settings. Uninstall the current version before running the installer.")
+                        }
+                        return UpdateController.upstreamNotice
+                                ? qsTr("You are using the AWG-Connect fork. Install updates from AWG-Connect Releases.")
+                                : qsTr("Automatic installation requires an AWG-Connect MSI with a matching update signature and an existing MSI installation.")
+                    }
                 }
 
                 H3TextType {
@@ -241,7 +256,7 @@ PageType {
 
         ButtonType {
             id: updateButton
-            visible: UpdateController.canInstall
+            visible: UpdateController.canInstall || UpdateController.previousVersion
 
             Layout.fillWidth: true
 
@@ -261,11 +276,21 @@ PageType {
                                                         : qsTr("Downloading update...")
                 case UpdateState.ReadyToInstall: return qsTr("Install update")
                 case UpdateState.DownloadError: return qsTr("Retry")
-                default: return qsTr("Update app")
+                default: return UpdateController.previousVersion ? qsTr("Save installer") : qsTr("Update app")
                 }
             }
 
             onClicked: {
+                if (UpdateController.previousVersion) {
+                    const fileName = SystemController.getFileName(qsTr("Save installer"), qsTr("Windows Installer (*.msi)"),
+                                                                  StandardPaths.standardLocations(StandardPaths.DownloadLocation)
+                                                                  + "/AWG-Connect_" + UpdateController.version + "_windows_x64.msi",
+                                                                  true, ".msi")
+                    if (fileName.length > 0) {
+                        UpdateController.downloadPreviousVersion(fileName)
+                    }
+                    return
+                }
                 if (UpdateController.isStoreUpdate) {
                     UpdateController.update()
                     return

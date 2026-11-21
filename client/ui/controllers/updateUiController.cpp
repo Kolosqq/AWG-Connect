@@ -13,6 +13,10 @@ UpdateUiController::UpdateUiController(UpdateController* updateController, QObje
         connect(m_updateController, &UpdateController::updateCheckFailed, this, &UpdateUiController::updateCheckFailed);
         connect(m_updateController, &UpdateController::updateStateChanged, this, &UpdateUiController::updateStateChanged);
         connect(m_updateController, &UpdateController::updateCheckRunningChanged, this, &UpdateUiController::isCheckRunningChanged);
+        connect(m_updateController, &UpdateController::previousVersionsFound, this,
+                &UpdateUiController::previousVersionsFound);
+        connect(m_updateController, &UpdateController::previousVersionSaved, this,
+                &UpdateUiController::previousVersionSaved);
     }
 }
 
@@ -88,6 +92,16 @@ bool UpdateUiController::isUpstreamNotice() const
     return m_updateController && m_updateController->isUpstreamNotice();
 }
 
+bool UpdateUiController::isPreviousVersion() const
+{
+    return m_updateController && m_updateController->isPreviousVersion();
+}
+
+QStringList UpdateUiController::previousVersions() const
+{
+    return m_updateController ? m_updateController->previousVersions() : QStringList();
+}
+
 int UpdateUiController::progress() const
 {
     return m_updateController ? m_updateController->progress() : 0;
@@ -104,6 +118,27 @@ void UpdateUiController::markUpstreamNoticeAsRead()
 {
     if (m_updateController) {
         m_updateController->markUpstreamNoticeAsRead();
+    }
+}
+
+void UpdateUiController::checkPreviousVersions()
+{
+    if (m_updateController) {
+        m_updateController->checkPreviousVersions();
+    }
+}
+
+void UpdateUiController::selectPreviousVersion(const QString &version)
+{
+    if (m_updateController) {
+        m_updateController->selectPreviousVersion(version);
+    }
+}
+
+void UpdateUiController::downloadPreviousVersion(const QString &destination)
+{
+    if (m_updateController) {
+        m_updateController->downloadPreviousVersion(destination);
     }
 }
 

@@ -8,6 +8,7 @@
         <file>Components/FavoriteButton.qml</file>
         <file>Components/ServerListItem.qml</file>
         <file>Components/UpdateSupportDrawer.qml</file>
+        <file>Components/PreviousVersionsDrawer.qml</file>
         <file>Components/PromoBanner.qml</file>
         <file>Components/ConnectButton.qml</file>
         <file>Components/CountryListStickyHeader.qml</file>

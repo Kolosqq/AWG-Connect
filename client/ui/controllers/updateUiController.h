@@ -19,6 +19,8 @@ class UpdateUiController : public QObject
     Q_PROPERTY(int updateState READ getUpdateState NOTIFY updateStateChanged)
     Q_PROPERTY(bool canInstall READ canInstall NOTIFY updateFound)
     Q_PROPERTY(bool upstreamNotice READ isUpstreamNotice NOTIFY updateFound)
+    Q_PROPERTY(bool previousVersion READ isPreviousVersion NOTIFY updateFound)
+    Q_PROPERTY(QStringList previousVersions READ previousVersions NOTIFY previousVersionsFound)
     Q_PROPERTY(int progress READ progress NOTIFY progressChanged)
     Q_PROPERTY(bool isStoreUpdate READ isStoreUpdate CONSTANT)
     Q_PROPERTY(bool isCheckRunning READ isCheckRunning NOTIFY isCheckRunningChanged)
@@ -37,12 +39,17 @@ public:
     bool isStoreUpdate() const;
     bool canInstall() const;
     bool isUpstreamNotice() const;
+    bool isPreviousVersion() const;
+    QStringList previousVersions() const;
     int progress() const;
     bool isCheckRunning() const;
 
 public slots:
     void checkForUpdates();
     void markUpstreamNoticeAsRead();
+    void checkPreviousVersions();
+    void selectPreviousVersion(const QString &version);
+    void downloadPreviousVersion(const QString &destination);
     void update();
     void install();
     void retry();
@@ -54,6 +61,8 @@ signals:
     void updateCheckFailed();
     void updateStateChanged();
     void isCheckRunningChanged();
+    void previousVersionsFound();
+    void previousVersionSaved();
 
 private:
     UpdateController* m_updateController;

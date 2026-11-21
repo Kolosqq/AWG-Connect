@@ -8,7 +8,7 @@
 #include <bcrypt.h>
 // clang-format on
 
-#include "core/utils/forkUpdateVersion.h"
+#include "core/utils/forkUpdateRelease.h"
 #include "core/utils/windowsUpdatePackage.h"
 
 class TestForkUpdate : public QObject
@@ -25,6 +25,32 @@ private slots:
         for (const auto &invalid : { "v1.2.3-beta.1", "1.2", "01.2.3", "1.2.3.4", "1.2.3\n", "v9999999999999.0.0" }) {
             QVERIFY(stableVersion(invalid).isNull());
         }
+    }
+
+    void offersOnlyOlderStableReleasesWithSignedMsi()
+    {
+        const auto release = [](const QString &version, bool draft = false, bool prerelease = false,
+                                int signatureSize = 384, qint64 packageSize = 1024) {
+            const auto name = forkUpdate::windowsMsiName(version);
+            return QJsonObject { { "tag_name", "v" + version },
+                                 { "draft", draft },
+                                 { "prerelease", prerelease },
+                                 { "assets",
+                                   QJsonArray { QJsonObject { { "name", name }, { "size", packageSize } },
+                                                QJsonObject { { "name", name + ".sig" }, { "size", signatureSize } } } } };
+        };
+        const QJsonArray releases { release("1.1.9"),
+                                    release("1.1.10"),
+                                    release("1.1.11"),
+                                    release("1.2.0"),
+                                    release("1.1.8", true),
+                                    release("1.1.7", false, true),
+                                    release("1.1.6", false, false, 0),
+                                    release("1.1.5", false, false, 384, 513LL * 1024 * 1024),
+                                    release("1.1.4-beta") };
+        const auto previous = forkUpdate::previousWindowsReleases(releases, forkUpdate::stableVersion("1.1.11"));
+        const QList<QVersionNumber> expected { forkUpdate::stableVersion("1.1.9"), forkUpdate::stableVersion("1.1.10") };
+        QCOMPARE(previous.keys(), expected);
     }
 
     void verifiesDetachedSignature()

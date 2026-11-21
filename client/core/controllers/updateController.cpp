@@ -1,7 +1,7 @@
 #include "updateController.h"
 
+#include "core/utils/forkUpdateRelease.h"
 #include "core/utils/forkUpdateVersion.h"
-#include <algorithm>
 
 #include <QDesktopServices>
 #include <QDir>
@@ -47,6 +47,33 @@ namespace
 #elif defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
     const QLatin1String kInstallerRemoteFileNamePattern("AmneziaVPN_%1_linux_x64.run");
     const QString kInstallerLocalPath = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/AmneziaVPN.run";
+#endif
+
+#ifdef Q_OS_WIN
+    QNetworkRequest githubReleaseRequest(const QString &path)
+    {
+        QNetworkRequest request { QUrl(QStringLiteral("https://api.github.com/repos/") + path) };
+        request.setRawHeader("Accept", "application/vnd.github+json");
+        request.setRawHeader("User-Agent", "AWG-Connect");
+        request.setTransferTimeout(15000);
+        return request;
+    }
+
+    bool saveVerifiedPackage(const QString &source, const QString &destination)
+    {
+        QFile package(source);
+        QSaveFile output(destination);
+        if (!package.open(QIODevice::ReadOnly) || !output.open(QIODevice::WriteOnly)) {
+            return false;
+        }
+        while (!package.atEnd()) {
+            const auto chunk = package.read(1024 * 1024);
+            if (chunk.isEmpty() || output.write(chunk) != chunk.size()) {
+                return false;
+            }
+        }
+        return package.error() == QFileDevice::NoError && output.commit();
+    }
 #endif
 
     QStringList stringListFromJsonValue(const QJsonValue &value)
@@ -406,7 +433,7 @@ int UpdateController::runLinuxInstaller(const QString &installerPath)
 bool UpdateController::canInstall() const
 {
 #ifdef Q_OS_WIN
-    return !m_upstreamNotice && !m_packageUrl.isEmpty()
+    return !m_upstreamNotice && !m_previousVersion && !m_packageUrl.isEmpty()
             && windowsUpdate::hasInstalledProduct(QStringLiteral(AWG_CONNECT_VERSION).toStdWString());
 #else
     return true;
@@ -431,6 +458,85 @@ void UpdateController::markUpstreamNoticeAsRead()
     }
 }
 
+bool UpdateController::isPreviousVersion() const
+{
+#ifdef Q_OS_WIN
+    return m_previousVersion;
+#else
+    return false;
+#endif
+}
+
+QStringList UpdateController::previousVersions() const
+{
+    QStringList versions;
+#ifdef Q_OS_WIN
+    for (auto it = m_previousReleases.constEnd(); it != m_previousReleases.constBegin();) {
+        versions.append((--it).key().toString());
+    }
+#endif
+    return versions;
+}
+
+void UpdateController::checkPreviousVersions()
+{
+#if defined(Q_OS_WIN) && CLIENT_ENABLE_APP_UPDATES
+    if (m_updateCheckRunning || m_updateState == UpdateState::State::Downloading
+        || m_updateState == UpdateState::State::ReadyToInstall) {
+        return;
+    }
+    setUpdateCheckRunning(true);
+    auto reply = amnApp->networkManager()->get(
+            githubReleaseRequest(QStringLiteral("Kolosqq/AWG-Connect/releases?per_page=30")));
+    connect(reply, &QNetworkReply::downloadProgress, this, [reply](qint64 bytes, qint64) {
+        if (bytes > 2 * 1024 * 1024) {
+            reply->abort();
+        }
+    });
+    connect(reply, &QNetworkReply::finished, this, [this, reply] {
+        reply->deleteLater();
+        setUpdateCheckRunning(false);
+        const auto releases = QJsonDocument::fromJson(reply->readAll());
+        if (reply->error() != QNetworkReply::NoError || !releases.isArray()) {
+            emit updateCheckFailed();
+            return;
+        }
+        m_previousReleases = forkUpdate::previousWindowsReleases(
+                releases.array(), forkUpdate::stableVersion(QStringLiteral(AWG_CONNECT_VERSION)));
+        emit previousVersionsFound();
+    });
+#endif
+}
+
+void UpdateController::selectPreviousVersion([[maybe_unused]] const QString &version)
+{
+#ifdef Q_OS_WIN
+    if (m_updateCheckRunning || m_updateState == UpdateState::State::Downloading
+        || m_updateState == UpdateState::State::ReadyToInstall) {
+        return;
+    }
+    const auto release = m_previousReleases.constFind(forkUpdate::stableVersion(version));
+    if (release != m_previousReleases.constEnd()) {
+        showWindowsRelease(release.value(), release.key().toString(), false, true);
+    }
+#endif
+}
+
+void UpdateController::downloadPreviousVersion([[maybe_unused]] const QString &destination)
+{
+#ifdef Q_OS_WIN
+    if (!m_previousVersion || m_packageUrl.isEmpty() || m_updateCheckRunning
+        || m_updateState == UpdateState::State::Downloading) {
+        return;
+    }
+    if (!QDir::isAbsolutePath(destination) || !destination.endsWith(QStringLiteral(".msi"), Qt::CaseInsensitive)) {
+        setUpdateState(UpdateState::State::DownloadError);
+        return;
+    }
+    downloadWindowsPackage(destination);
+#endif
+}
+
 int UpdateController::progress() const
 {
 #ifdef Q_OS_WIN
@@ -445,11 +551,7 @@ void UpdateController::checkGithubRelease(bool upstream, bool automatic)
 {
     const QString repository =
             upstream ? QStringLiteral("amnezia-vpn/amnezia-client") : QStringLiteral("Kolosqq/AWG-Connect");
-    QNetworkRequest request { QUrl(QStringLiteral("https://api.github.com/repos/") + repository + "/releases/latest") };
-    request.setRawHeader("Accept", "application/vnd.github+json");
-    request.setRawHeader("User-Agent", "AWG-Connect");
-    request.setTransferTimeout(15000);
-    auto reply = amnApp->networkManager()->get(request);
+    auto reply = amnApp->networkManager()->get(githubReleaseRequest(repository + QStringLiteral("/releases/latest")));
     connect(reply, &QNetworkReply::downloadProgress, this, [reply](qint64 bytes, qint64) {
         if (bytes > 1024 * 1024) {
             reply->abort();
@@ -492,43 +594,40 @@ void UpdateController::checkGithubRelease(bool upstream, bool automatic)
             return;
         }
 
-        m_packageUrl.clear();
-        m_packageSize = 0;
-        m_upstreamNotice = upstream;
-        m_version = version.toString();
-        m_releaseDate = release.value("published_at").toString().left(10);
-        m_description = release.value("body").toString().left(24000);
-        if (!upstream) {
-            const auto name = QStringLiteral("AWG-Connect_%1_windows_x64.msi").arg(m_version);
-            const auto assets = release.value("assets").toArray();
-            const bool hasSignature =
-                    std::any_of(assets.constBegin(), assets.constEnd(), [&name](const QJsonValue &entry) {
-                        const auto asset = entry.toObject();
-                        return asset.value("name").toString() == name + ".sig" && asset.value("size").toInt() == 384;
-                    });
-            for (const auto &entry : assets) {
-                const auto asset = entry.toObject();
-                const qint64 size = asset.value("size").toInteger();
-                if (hasSignature && asset.value("name").toString() == name && size > 0 && size <= 512 * 1024 * 1024) {
-                    m_packageUrl = QStringLiteral("https://github.com/Kolosqq/AWG-Connect/releases/download/v%1/%2")
-                                           .arg(m_version, name);
-                    m_packageSize = size;
-                    break;
-                }
-            }
-        }
         setUpdateCheckRunning(false);
-        setUpdateState(UpdateState::State::Idle);
-        logger.info() << "New stable release:" << repository << m_version;
-        emit updateFound();
+        logger.info() << "New stable release:" << repository << version.toString();
+        showWindowsRelease(release, version.toString(), upstream, false);
     });
 }
 
-void UpdateController::downloadWindowsPackage()
+void UpdateController::showWindowsRelease(const QJsonObject &release, const QString &version, bool upstream, bool previous)
 {
-    if (!canInstall() || m_updateCheckRunning || m_updateState == UpdateState::State::Downloading) {
+    m_packageUrl.clear();
+    m_packageSize = 0;
+    m_previousPackageDestination.clear();
+    m_upstreamNotice = upstream;
+    m_previousVersion = previous;
+    m_version = version;
+    m_releaseDate = release.value("published_at").toString().left(10);
+    m_description = release.value("body").toString().left(24000);
+    if (!upstream) {
+        m_packageSize = forkUpdate::windowsMsiSize(release.value("assets").toArray(), m_version);
+        if (m_packageSize > 0) {
+            m_packageUrl = QStringLiteral("https://github.com/Kolosqq/AWG-Connect/releases/download/v%1/%2")
+                                   .arg(m_version, forkUpdate::windowsMsiName(m_version));
+        }
+    }
+    setUpdateState(UpdateState::State::Idle);
+    emit updateFound();
+}
+
+void UpdateController::downloadWindowsPackage(const QString &destination)
+{
+    if ((destination.isEmpty() && !canInstall()) || m_updateCheckRunning
+        || m_updateState == UpdateState::State::Downloading) {
         return;
     }
+    m_previousPackageDestination = destination;
     m_staging = std::make_unique<QTemporaryDir>(QDir::tempPath() + "/AWG-Connect-update-XXXXXX");
     if (!m_staging->isValid()) {
         setUpdateState(UpdateState::State::DownloadError);
@@ -599,14 +698,25 @@ void UpdateController::downloadWindowsSignature()
             setUpdateState(UpdateState::State::DownloadError);
             return;
         }
-        QtConcurrent::run([path = m_packagePath.toStdWString(), version = m_version.toStdWString()] {
-            return windowsUpdate::verifyPackage(path, version);
-        }).then(this, [this](bool valid) {
-            if (!valid) {
+        QtConcurrent::run([path = m_packagePath, version = m_version.toStdWString(),
+                           destination = m_previousPackageDestination] {
+            return windowsUpdate::verifyPackage(path.toStdWString(), version)
+                    && (destination.isEmpty() || saveVerifiedPackage(path, destination));
+        }).then(this, [this](bool success) {
+            if (!success) {
                 QFile::remove(m_packagePath);
-                logger.warning() << "Fork update failed signature or MSI metadata verification";
+                logger.warning() << "Fork update could not be verified or saved";
+                setUpdateState(UpdateState::State::DownloadError);
+                return;
             }
-            setUpdateState(valid ? UpdateState::State::ReadyToInstall : UpdateState::State::DownloadError);
+            if (m_previousVersion) {
+                m_previousPackageDestination.clear();
+                m_staging.reset();
+                setUpdateState(UpdateState::State::Idle);
+                emit previousVersionSaved();
+                return;
+            }
+            setUpdateState(UpdateState::State::ReadyToInstall);
         });
     });
 }

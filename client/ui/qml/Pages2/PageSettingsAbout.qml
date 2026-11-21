@@ -5,6 +5,7 @@ import QtQuick.Window
 
 import PageEnum 1.0
 import Style 1.0
+import UpdateState 1.0
 
 import "./"
 import "../Controls2"
@@ -15,6 +16,8 @@ import "../Components"
 PageType {
     id: root
 
+    property bool checkingPreviousVersions: false
+
     Connections {
         target: UpdateController
 
@@ -24,7 +27,22 @@ PageType {
         }
 
         function onUpdateCheckFailed() {
-            PageController.showNotificationMessage(qsTr("Failed to check for updates"))
+            const message = root.checkingPreviousVersions ? qsTr("Failed to load previous versions")
+                                                          : qsTr("Failed to check for updates")
+            root.checkingPreviousVersions = false
+            PageController.showNotificationMessage(message)
+        }
+
+        function onPreviousVersionsFound() {
+            root.checkingPreviousVersions = false
+            if (root.StackView.status !== StackView.Active) {
+                return
+            }
+            if (UpdateController.previousVersions.length === 0) {
+                PageController.showNotificationMessage(qsTr("No previous versions are available"))
+                return
+            }
+            previousVersionsDrawer.open()
         }
     }
 
@@ -206,13 +224,33 @@ PageType {
 
                         variant: ButtonType.Text
                         size: ButtonType.Medium
-                        loading: UpdateController.isCheckRunning
+                        loading: UpdateController.isCheckRunning && !root.checkingPreviousVersions
                         enabled: !UpdateController.isCheckRunning
 
-                        text: UpdateController.isCheckRunning ? qsTr("Checking...") : qsTr("Check for updates")
+                        text: loading ? qsTr("Checking...") : qsTr("Check for updates")
 
                         onClicked: {
                             UpdateController.checkForUpdates()
+                        }
+                    }
+
+                    ButtonType {
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.maximumWidth: content.width - 32
+
+                        visible: Qt.platform.os === "windows"
+                        loading: root.checkingPreviousVersions
+                        enabled: !UpdateController.isCheckRunning
+                                 && UpdateController.updateState !== UpdateState.Downloading
+                                 && UpdateController.updateState !== UpdateState.ReadyToInstall
+
+                        variant: ButtonType.Text
+                        size: ButtonType.Medium
+                        text: qsTr("Previous versions")
+
+                        onClicked: {
+                            root.checkingPreviousVersions = true
+                            UpdateController.checkPreviousVersions()
                         }
                     }
 
@@ -231,6 +269,14 @@ PageType {
                     }
                 }
             }
+        }
+    }
+
+    PreviousVersionsDrawer {
+        id: previousVersionsDrawer
+
+        onVersionSelected: function(version) {
+            UpdateController.selectPreviousVersion(version)
         }
     }
 }
