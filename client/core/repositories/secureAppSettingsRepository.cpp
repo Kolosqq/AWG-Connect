@@ -1,5 +1,9 @@
 #include "secureAppSettingsRepository.h"
 
+#ifdef Q_OS_WIN
+    #include "platforms/windows/codexPackageFolders.h"
+#endif
+
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -243,6 +247,11 @@ QVector<InstalledAppInfo> SecureAppSettingsRepository::vpnApps(AppsRouteMode mod
         appInfo.selectedFromProcess = app.toObject().value("selectedFromProcess").toBool();
         apps.push_back(appInfo);
     }
+#ifdef Q_OS_WIN
+    if (mode == AppsRouteMode::VpnOnlyForwardApps) {
+        return codexPackageFolders::currentSelection(apps);
+    }
+#endif
     return apps;
 }
 

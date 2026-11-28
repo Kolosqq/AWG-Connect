@@ -16,6 +16,10 @@
 #include "daemon/interfaceconfig.h"
 #include "mozilla/localsocketcontroller.h"
 
+#ifdef Q_OS_WIN
+    #include "platforms/windows/codexPackageFolders.h"
+#endif
+
 class ConfigOnlyDaemon : public Daemon
 {
 public:
@@ -81,6 +85,37 @@ private slots:
         QCOMPARE(manual.value("type").toString(), QString("deactivate"));
         QVERIFY(manual.value("manual").toBool());
     }
+
+#ifdef Q_OS_WIN
+    void followsSelectedCodexPackagesAcrossUpdates()
+    {
+        const QString root = "Q:/Program Files/WindowsApps/";
+        const QString oldMain = root + "OpenAI.Codex_1.2.3.4_x64__2p2nqsd0c76g0/";
+        const QString main = root + "OpenAI.Codex_1.2.3.5_x64__2p2nqsd0c76g0/";
+        const QString oldRuntime = root + "OpenAI.CodexPrimaryRuntime.v1-2-3-4_1.2.3.4_x64__3k8sg7r9htsxt/";
+        const QString runtime = root + "OpenAI.CodexPrimaryRuntime.v1-2-3-5_1.2.3.5_x64__3k8sg7r9htsxt/";
+        const auto entry = [](const QString &path) { return amnezia::InstalledAppInfo { "selected", { }, path }; };
+        int lookups = 0;
+        const auto lookup = [&] {
+            ++lookups;
+            return QStringList { main, runtime, root + "OpenAI.Codex_1.2.3.5_x64__aaaaaaaaaaaaa/",
+                                 root + "OpenAI.Codex_1.2.3.5_arm64__2p2nqsd0c76g0/" };
+        };
+        const auto apps =
+                codexPackageFolders::currentSelection({ entry(oldMain), entry(main), entry(oldRuntime) }, lookup);
+        QCOMPARE(lookups, 1);
+        QCOMPARE(apps.size(), 2);
+        QCOMPARE(apps[0].appPath, main);
+        QCOMPARE(apps[1].appPath, runtime);
+        QCOMPARE(codexPackageFolders::currentSelection({ entry(oldMain) }, lookup).size(), 1);
+        QCOMPARE(codexPackageFolders::currentSelection({ entry(oldRuntime) }, [] { return QStringList { }; })[0].appPath,
+                 oldRuntime);
+        const QVector<amnezia::InstalledAppInfo> ordinary { entry("Q:/Other/"), entry(oldMain + "app/ChatGPT.exe") };
+        lookups = 0;
+        QCOMPARE(codexPackageFolders::currentSelection(ordinary, lookup), ordinary);
+        QCOMPARE(lookups, 0);
+    }
+#endif
 
     void resolvesFoldersRecursivelyAndRefreshes()
     {

@@ -271,6 +271,7 @@ set(SOURCES ${SOURCES}
 )
 
 if(WIN32)
+    list(APPEND SOURCES ${CLIENT_ROOT_DIR}/platforms/windows/codexPackageFolders.cpp)
     list(APPEND SOURCES ${CLIENT_ROOT_DIR}/core/utils/windowsUpdatePackage.cpp)
     list(APPEND SOURCES ${CLIENT_ROOT_DIR}/core/utils/installedAppsImageProvider.cpp)
     set(HEADERS ${HEADERS}
